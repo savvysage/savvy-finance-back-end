@@ -1,4 +1,4 @@
-from brownie import SavvyFinance, SavvyFinanceFarm, network, config, web3
+from brownie import SavvyFinance, SavvyFinanceStaking, network, config, web3
 from scripts.common import get_account, get_contract
 
 
@@ -10,8 +10,8 @@ def deploy_savvy_finance(account=get_account()):
     )
 
 
-def deploy_savvy_finance_farm(account=get_account()):
-    return SavvyFinanceFarm.deploy(
+def deploy_savvy_finance_staking(account=get_account()):
+    return SavvyFinanceStaking.deploy(
         {"from": account},
         publish_source=config["networks"][network.show_active()].get("verify", False),
     )
@@ -36,21 +36,20 @@ def remove_allowed_tokens(contract, tokens):
 
 
 def main():
-    account = get_account()
     savvy_finance = deploy_savvy_finance()
-    savvy_finance_farm = deploy_savvy_finance_farm()
+    savvy_finance_staking = deploy_savvy_finance_staking()
     tokens = get_tokens()
     tokens.append(savvy_finance.address)
-    add_allowed_tokens(savvy_finance_farm, tokens)
+    add_allowed_tokens(savvy_finance_staking, tokens)
     stake_amount = web3.toWei(10000, "ether")
-    savvy_finance.approve(savvy_finance_farm.address, stake_amount).wait(1)
-    savvy_finance_farm.stakeToken(savvy_finance.address, stake_amount).wait(1)
+    savvy_finance.approve(savvy_finance_staking.address, stake_amount).wait(1)
+    savvy_finance_staking.stakeToken(savvy_finance.address, stake_amount).wait(1)
 
     savvy_finance_2 = deploy_savvy_finance()
-    add_allowed_tokens(savvy_finance_farm, [savvy_finance_2.address])
+    add_allowed_tokens(savvy_finance_staking, [savvy_finance_2.address])
     stake_amount_2 = web3.toWei(10000, "ether")
-    savvy_finance_2.approve(savvy_finance_farm.address, stake_amount_2).wait(1)
-    savvy_finance_farm.stakeToken(savvy_finance_2.address, stake_amount_2).wait(1)
+    savvy_finance_2.approve(savvy_finance_staking.address, stake_amount_2).wait(1)
+    savvy_finance_staking.stakeToken(savvy_finance_2.address, stake_amount_2).wait(1)
 
     unstake_amount = web3.toWei(10000, "ether")
-    savvy_finance_farm.unstakeToken(savvy_finance.address, unstake_amount).wait(1)
+    savvy_finance_staking.unstakeToken(savvy_finance.address, unstake_amount).wait(1)

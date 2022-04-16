@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-contract SavvyFinanceFarm is Ownable {
+contract SavvyFinanceStaking is Ownable {
     mapping(address => mapping(address => uint256)) public stakingData;
     mapping(address => uint256) public stakersToUniqueTokensStaked;
     address[] public stakers;
