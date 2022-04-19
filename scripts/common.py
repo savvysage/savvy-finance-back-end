@@ -40,6 +40,10 @@ def get_account(index=0, id=None):
     return accounts.add(config["wallets"]["development"]["private_key"])
 
 
+def get_address(address_name):
+    return config["addresses"][address_name]
+
+
 def get_contract(contract_name):
     """
     If you want to use this function, go to the brownie config and add a new entry for

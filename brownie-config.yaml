@@ -33,3 +33,15 @@ networks:
       link_token: '0x01BE23585060835E02B77ef475b0Cc51aA1e0709'
       vrf_coordinator: '0xb3dCcb4Cf7a26f6cf6B120Cf5A73875B7BBc655B'
       eth_usd_price_feed: '0x8A753747A1Fa494EC906cE90E9f37563A8AF630e'
+  bsc-testnet:
+    verify: True
+    key_hash: '0x2ed0feb3e7fd2022120aa84fab1945545a9f2ffc9076fd6156fa96eaff4c1311'
+    fee: 100000000000000000 # 0.1
+    contracts:
+      weth_token: '0xc778417E063141139Fce010982780140Aa0cD5Ab'
+      dai_token: '0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa'
+      link_token: '0x01BE23585060835E02B77ef475b0Cc51aA1e0709'
+      vrf_coordinator: '0xb3dCcb4Cf7a26f6cf6B120Cf5A73875B7BBc655B'
+      eth_usd_price_feed: '0x8A753747A1Fa494EC906cE90E9f37563A8AF630e'
+addresses:
+  null0: '0x0000000000000000000000000000000000000000'

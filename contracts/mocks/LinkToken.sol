@@ -11,7 +11,7 @@ contract LinkToken is linkStandardToken, ERC677Token {
     string public constant symbol = "LINK";
 
     function LinkToken() public {
-        balances[msg.sender] = totalSupply;
+        allowedTokensStakersBalances[msg.sender] = totalSupply;
     }
 
     /**
