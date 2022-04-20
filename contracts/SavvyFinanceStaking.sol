@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 contract SavvyFinanceStaking is Ownable {
-    IERC20 public rewardToken;
     address[] public allowedTokens;
     mapping(address => bool) public isAllowedToken;
     mapping(address => address) public allowedTokensPriceFeeds;
@@ -18,12 +17,12 @@ contract SavvyFinanceStaking is Ownable {
     mapping(address => bool) public isStaker;
     mapping(address => uint256) public stakersUniqueTokensStaked;
     mapping(address => uint256) public stakersRewards;
-    mapping(address => mapping(address => uint256))
-        public allowedTokensStakersBalances;
-
-    constructor(address _reward_token) {
-        rewardToken = IERC20(_reward_token);
+    struct stakingDetails {
+        uint256 balance;
+        address rewardToken;
+        uint256 rewardBalance;
     }
+    mapping(address => mapping(address => stakingDetails)) public stakingData;
 
     function addAllowedToken(address _token) public onlyOwner {
         require(isAllowedToken[_token] == false, "Token already allowed.");
@@ -61,7 +60,7 @@ contract SavvyFinanceStaking is Ownable {
         require(isAllowedToken[_token] == true, "Token not allowed.");
         require(
             allowedTokensAdmins[_token] == msg.sender,
-            "Restricted to token admin."
+            "Only the token admin can do this."
         );
         require(_amount > 0, "Amount must be greater than zero.");
         if (
@@ -70,10 +69,10 @@ contract SavvyFinanceStaking is Ownable {
         ) {
             require(
                 IERC20(_token).balanceOf(msg.sender) >= _amount,
-                "Insufficient balance."
+                "Insufficient token balance."
             );
             IERC20(_token).transferFrom(msg.sender, address(this), _amount);
-            allowedTokensRewardBalances += _amount;
+            allowedTokensRewardBalances[_token] += _amount;
         }
         if (
             keccak256(abi.encodePacked(_action)) ==
@@ -81,10 +80,10 @@ contract SavvyFinanceStaking is Ownable {
         ) {
             require(
                 allowedTokensRewardBalances[_token] >= _amount,
-                "Amount is greater than reward balance."
+                "Amount is greater than token reward balance."
             );
             IERC20(_token).transfer(msg.sender, _amount);
-            allowedTokensRewardBalances -= _amount;
+            allowedTokensRewardBalances[_token] -= _amount;
         }
     }
 
@@ -113,91 +112,86 @@ contract SavvyFinanceStaking is Ownable {
         }
     }
 
-    function stakeToken(
+    function updateStakingData(
         address _token,
-        uint256 _amount,
-        address _staker
-    ) public {
-        if (_staker == address(0x0)) _staker = msg.sender;
-        require(isAllowedToken[_token] == true, "Token not allowed.");
-        require(_amount > 0, "Amount must be greater than zero.");
-        require(
-            IERC20(_token).balanceOf(_staker) >= _amount,
-            "Insufficient balance."
-        );
-        IERC20(_token).transferFrom(_staker, address(this), _amount);
-        updateAllowedTokensStakersBalances(_staker, _token, "stake");
-        allowedTokensStakersBalances[_token][_staker] += _amount;
-    }
-
-    function unstakeToken(
-        address _token,
-        uint256 _amount,
-        address _staker
-    ) public {
-        if (_staker == address(0x0)) _staker = msg.sender;
-        require(_amount > 0, "Amount must be greater than zero.");
-        require(
-            allowedTokensStakersBalances[_token][_staker] >= _amount,
-            "Amount is greater than staking balance."
-        );
-        IERC20(_token).transfer(_staker, _amount);
-        allowedTokensStakersBalances[_token][_staker] -= _amount;
-        updateAllowedTokensStakersBalances(_staker, _token, "unstake");
-    }
-
-    function updateAllowedTokensStakersBalances(
         address _staker,
-        address _token,
+        uint256 _amount,
         string memory _action
     ) internal {
-        if (allowedTokensStakersBalances[_token][_staker] <= 0) {
-            if (
-                keccak256(abi.encodePacked(_action)) ==
-                keccak256(abi.encodePacked("stake"))
-            ) {
-                stakersUniqueTokensStaked[_staker]++;
-
-                if (stakersUniqueTokensStaked[_staker] == 1) {
+        if (_staker == address(0x0)) _staker = msg.sender;
+        require(_amount > 0, "Amount must be greater than zero.");
+        if (
+            keccak256(abi.encodePacked(_action)) ==
+            keccak256(abi.encodePacked("stake"))
+        ) {
+            require(isAllowedToken[_token] == true, "Token not allowed.");
+            require(
+                IERC20(_token).balanceOf(_staker) >= _amount,
+                "Insufficient token balance."
+            );
+            IERC20(_token).transferFrom(_staker, address(this), _amount);
+            if (stakingData[_token][_staker].balance == 0) {
+                if (stakersUniqueTokensStaked[_staker] == 0) {
                     stakers.push(_staker);
                     isStaker[_staker] = true;
                 }
+                stakersUniqueTokensStaked[_staker]++;
+                stakingData[_token][_staker].rewardToken = _token;
             }
-            if (
-                keccak256(abi.encodePacked(_action)) ==
-                keccak256(abi.encodePacked("unstake"))
-            ) {
-                stakersUniqueTokensStaked[_staker]--;
-
-                if (stakersUniqueTokensStaked[_staker] == 0) {
-                    removeFrom(stakers, _staker);
+            stakingData[_token][_staker].balance += _amount;
+        }
+        if (
+            keccak256(abi.encodePacked(_action)) ==
+            keccak256(abi.encodePacked("unstake"))
+        ) {
+            require(
+                allowedTokensStakersBalances[_token][_staker] >= _amount,
+                "Amount is greater than token staking balance."
+            );
+            IERC20(_token).transfer(_staker, _amount);
+            if (stakingData[_token][_staker].balance == _amount) {
+                if (stakersUniqueTokensStaked[_staker] == 1) {
                     delete isStaker[_staker];
+                    removeFrom(stakers, _staker);
                 }
+                stakersUniqueTokensStaked[_staker]--;
             }
+            stakingData[_token][_staker].balance -= _amount;
         }
     }
 
     function rewardStakers() public onlyOwner {
         for (
-            uint256 stakersIndex = 0;
-            stakersIndex < stakers.length;
-            stakersIndex++
+            uint256 allowedTokensIndex = 0;
+            allowedTokensIndex < allowedTokens.length;
+            allowedTokens++
         ) {
-            address staker = stakers[stakersIndex];
-            if (stakersUniqueTokensStaked[staker] <= 0) continue;
-            uint256 rewardAmount = getStakerTotalValue(staker, allowedTokens);
-            stakersRewards[staker] += rewardAmount;
+            address token = allowedTokens[allowedTokensIndex];
+            for (
+                uint256 stakersIndex = 0;
+                stakersIndex < stakers.length;
+                stakersIndex++
+            ) {
+                address staker = stakers[stakersIndex];
+                uint256 stakerReward = getStakerTokenValue(staker, token) / 200;
+                (
+                    uint256 rewardTokenPrice,
+                    uint256 rewardTokenDecimals
+                ) = getTokenPrice(stakingData[token][staker].rewardToken);
+                stakingData[token][staker].rewardBalance += ((stakerReward /
+                    rewardTokenPrice) / (10**rewardTokenDecimals));
+            }
         }
     }
 
-    function withdrawRewards(uint256 _amount) public {
+    function withdrawReward(address _token, uint256 _amount) public {
         require(_amount > 0, "Amount must be greater than zero.");
         require(
             stakersRewards[msg.sender] >= _amount,
-            "Amount is greater than staking rewards balance."
+            "Amount is greater than token reward balance."
         );
-        rewardToken.transfer(msg.sender, _amount);
-        stakersRewards[msg.sender] -= _amount;
+        IERC20(_token).transfer(msg.sender, _amount);
+        stakingData[_token][msg.sender] -= _amount;
     }
 
     function getStakerTotalValue(address _staker, address[] memory _tokens)
