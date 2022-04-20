@@ -80,12 +80,6 @@ def main():
     #     weth_token.address, stake_amount, get_address("null0"), {"from": get_account()}
     # ).wait(1)
 
-    my_weth_staking_value = savvy_finance_staking.getStakerTokenValue(
-        get_account().address, weth_token.address
-    )
-    print(my_weth_staking_value)
-    print(my_weth_staking_value / 10 ** 18)
-
     # savvy_finance.transfer(
     #     savvy_finance_staking.address,
     #     web3.toWei(1000, "ether"),
@@ -95,10 +89,10 @@ def main():
     #     savvy_finance_staking.address, web3.toWei(0.01, "ether"), {"gas_limit": 1000000}
     # ).wait(1)
 
-    savvy_finance_staking.rewardStakers(
-        {"from": get_account(), "gas_limit": 1000000}
-    ).wait(1)
+    # savvy_finance_staking.rewardStakers(
+    #     {"from": get_account(), "gas_limit": 1000000}
+    # ).wait(1)
 
-    my_staking_reward = savvy_finance_staking.stakersRewards(get_account().address)
-    print(my_staking_reward)
-    print(my_staking_reward / 10 ** 18)
+    # my_staking_reward = savvy_finance_staking.stakersRewards(get_account().address)
+    # print(my_staking_reward)
+    # print(my_staking_reward / 10 ** 18)

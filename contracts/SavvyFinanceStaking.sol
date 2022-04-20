@@ -3,45 +3,42 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 contract SavvyFinanceStaking is Ownable {
     address[] public allowedTokens;
     mapping(address => bool) public isAllowedToken;
-    mapping(address => address) public allowedTokensPriceFeeds;
-    mapping(address => address) public allowedTokensAdmins;
-    mapping(address => uint256) public allowedTokensRewardBalances;
-    address[] public rewardTokens;
-    mapping(address => bool) public isRewardToken;
+    mapping(address => bool) public isStakableAllowedToken;
+    struct allowedTokenDetails {
+        address admin;
+        address rewardToken;
+        uint256 price;
+        uint256 balance;
+    }
+    mapping(address => allowedTokenDetails) public allowedTokensData;
     address[] public stakers;
     mapping(address => bool) public isStaker;
-    mapping(address => uint256) public stakersUniqueTokensStaked;
-    mapping(address => uint256) public stakersRewards;
     struct stakingDetails {
         uint256 balance;
         address rewardToken;
         uint256 rewardBalance;
     }
     mapping(address => mapping(address => stakingDetails)) public stakingData;
+    mapping(address => uint256) public stakersUniqueTokensStaked;
+    uint256 public interestRate;
 
     function addAllowedToken(address _token) public onlyOwner {
         require(isAllowedToken[_token] == false, "Token already allowed.");
         allowedTokens.push(_token);
         isAllowedToken[_token] = true;
+        allowedTokensData[_token].admin = msg.sender;
+        allowedTokensData[_token].rewardToken = _token;
+        isStakableAllowedToken[_token] = true;
     }
 
     function removeAllowedToken(address _token) public onlyOwner {
         require(isAllowedToken[_token] == true, "Token not allowed.");
-        removeFrom(allowedTokens, _token);
         delete isAllowedToken[_token];
-    }
-
-    function setAllowedTokenPriceFeed(address _token, address _price_feed)
-        public
-        onlyOwner
-    {
-        require(isAllowedToken[_token] == true, "Token not allowed.");
-        allowedTokensPriceFeeds[_token] = _price_feed;
+        removeFrom(allowedTokens, _token);
     }
 
     function setAllowedTokenAdmin(address _token, address _admin)
@@ -49,7 +46,23 @@ contract SavvyFinanceStaking is Ownable {
         onlyOwner
     {
         require(isAllowedToken[_token] == true, "Token not allowed.");
-        allowedTokensAdmins[_token] = _admin;
+        allowedTokensData[_token].admin = _admin;
+    }
+
+    function setAllowedTokenRewardToken(address _token, address _reward_token)
+        public
+        onlyOwner
+    {
+        require(isAllowedToken[_token] == true, "Token not allowed.");
+        allowedTokensData[_token].rewardToken = _reward_token;
+    }
+
+    function setAllowedTokenPrice(address _token, uint256 _price)
+        public
+        onlyOwner
+    {
+        require(isAllowedToken[_token] == true, "Token not allowed.");
+        allowedTokensData[_token].price = _price;
     }
 
     function updateAllowedTokenRewardBalance(
@@ -59,7 +72,7 @@ contract SavvyFinanceStaking is Ownable {
     ) public {
         require(isAllowedToken[_token] == true, "Token not allowed.");
         require(
-            allowedTokensAdmins[_token] == msg.sender,
+            allowedTokensData[_token].admin == msg.sender,
             "Only the token admin can do this."
         );
         require(_amount > 0, "Amount must be greater than zero.");
@@ -72,43 +85,18 @@ contract SavvyFinanceStaking is Ownable {
                 "Insufficient token balance."
             );
             IERC20(_token).transferFrom(msg.sender, address(this), _amount);
-            allowedTokensRewardBalances[_token] += _amount;
+            allowedTokensData[_token].balance += _amount;
         }
         if (
             keccak256(abi.encodePacked(_action)) ==
             keccak256(abi.encodePacked("remove"))
         ) {
             require(
-                allowedTokensRewardBalances[_token] >= _amount,
-                "Amount is greater than token reward balance."
+                allowedTokensData[_token].balance >= _amount,
+                "Amount is greater than token balance."
             );
             IERC20(_token).transfer(msg.sender, _amount);
-            allowedTokensRewardBalances[_token] -= _amount;
-        }
-    }
-
-    function addRewardToken(address _token) public onlyOwner {
-        require(isRewardToken[_token] == false, "Already a reward token.");
-        rewardTokens.push(_token);
-        isRewardToken[_token] = true;
-    }
-
-    function removeRewardToken(address _token) public onlyOwner {
-        require(isRewardToken[_token] == true, "Not a reward token.");
-        removeFrom(rewardTokens, _token);
-        delete isRewardToken[_token];
-    }
-
-    function removeFrom(address[] storage _array, address _arrayValue)
-        internal
-    {
-        for (uint256 arrayIndex = 0; arrayIndex < _array.length; arrayIndex++) {
-            if (_array[arrayIndex] == _arrayValue) {
-                // move to last index
-                _array[arrayIndex] = _array[_array.length - 1];
-                // delete last index
-                _array.pop();
-            }
+            allowedTokensData[_token].balance -= _amount;
         }
     }
 
@@ -124,7 +112,10 @@ contract SavvyFinanceStaking is Ownable {
             keccak256(abi.encodePacked(_action)) ==
             keccak256(abi.encodePacked("stake"))
         ) {
-            require(isAllowedToken[_token] == true, "Token not allowed.");
+            require(
+                isStakableAllowedToken[_token] == true,
+                "Token not stakable."
+            );
             require(
                 IERC20(_token).balanceOf(_staker) >= _amount,
                 "Insufficient token balance."
@@ -145,7 +136,7 @@ contract SavvyFinanceStaking is Ownable {
             keccak256(abi.encodePacked("unstake"))
         ) {
             require(
-                allowedTokensStakersBalances[_token][_staker] >= _amount,
+                stakingData[_token][_staker].balance >= _amount,
                 "Amount is greater than token staking balance."
             );
             IERC20(_token).transfer(_staker, _amount);
@@ -160,26 +151,33 @@ contract SavvyFinanceStaking is Ownable {
         }
     }
 
+    function updateStakersRewardToken(
+        address _staker,
+        address _token,
+        address _reward_token
+    ) public {
+        require(isAllowedToken[_token] == true, "Token not allowed.");
+        require(isAllowedToken[_reward_token] == true, "Token not allowed.");
+        stakingData[_token][_staker].rewardToken = _reward_token;
+    }
+
     function rewardStakers() public onlyOwner {
         for (
             uint256 allowedTokensIndex = 0;
             allowedTokensIndex < allowedTokens.length;
-            allowedTokens++
+            allowedTokensIndex++
         ) {
             address token = allowedTokens[allowedTokensIndex];
+            uint256 tokenPrice = allowedTokensData[token].price;
             for (
                 uint256 stakersIndex = 0;
                 stakersIndex < stakers.length;
                 stakersIndex++
             ) {
                 address staker = stakers[stakersIndex];
-                uint256 stakerReward = getStakerTokenValue(staker, token) / 200;
-                (
-                    uint256 rewardTokenPrice,
-                    uint256 rewardTokenDecimals
-                ) = getTokenPrice(stakingData[token][staker].rewardToken);
-                stakingData[token][staker].rewardBalance += ((stakerReward /
-                    rewardTokenPrice) / (10**rewardTokenDecimals));
+                uint256 stakerTokenBalance = stakingData[token][staker].balance;
+                uint256 stakerReward = (stakerTokenBalance * tokenPrice) /
+                    (100 / interestRate);
             }
         }
     }
@@ -187,55 +185,24 @@ contract SavvyFinanceStaking is Ownable {
     function withdrawReward(address _token, uint256 _amount) public {
         require(_amount > 0, "Amount must be greater than zero.");
         require(
-            stakersRewards[msg.sender] >= _amount,
+            stakingData[_token][msg.sender].rewardBalance >= _amount,
             "Amount is greater than token reward balance."
         );
         IERC20(_token).transfer(msg.sender, _amount);
-        stakingData[_token][msg.sender] -= _amount;
+        stakingData[_token][msg.sender].rewardBalance -= _amount;
     }
 
-    function getStakerTotalValue(address _staker, address[] memory _tokens)
-        public
-        view
-        returns (uint256)
+    function removeFrom(address[] storage _array, address _arrayValue)
+        internal
     {
-        if (stakersUniqueTokensStaked[_staker] <= 0) return 0;
-        uint256 stakerTotalValue = 0;
-        for (
-            uint256 tokensIndex = 0;
-            tokensIndex < _tokens.length;
-            tokensIndex++
-        ) {
-            stakerTotalValue += getStakerTokenValue(
-                _staker,
-                _tokens[tokensIndex]
-            );
+        for (uint256 arrayIndex = 0; arrayIndex < _array.length; arrayIndex++) {
+            if (_array[arrayIndex] == _arrayValue) {
+                // move to last index
+                _array[arrayIndex] = _array[_array.length - 1];
+                // delete last index
+                _array.pop();
+            }
         }
-        return stakerTotalValue;
-    }
-
-    function getStakerTokenValue(address _staker, address _token)
-        public
-        view
-        returns (uint256)
-    {
-        if (stakersUniqueTokensStaked[_staker] <= 0) return 0;
-        if (allowedTokensStakersBalances[_token][_staker] <= 0) return 0;
-        (uint256 price, uint256 decimals) = getTokenPrice(_token);
-        return ((allowedTokensStakersBalances[_token][_staker] * price) /
-            (10**decimals));
-    }
-
-    function getTokenPrice(address _token)
-        public
-        view
-        returns (uint256, uint256)
-    {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(
-            allowedTokensPriceFeeds[_token]
-        );
-        (, int256 price, , , ) = priceFeed.latestRoundData();
-        return (uint256(price), uint256(priceFeed.decimals()));
     }
 
     function transferToken(
