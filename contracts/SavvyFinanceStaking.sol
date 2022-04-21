@@ -8,6 +8,7 @@ contract SavvyFinanceStaking is Ownable {
     address[] public allowedTokens;
     mapping(address => bool) public isAllowedToken;
     mapping(address => bool) public isStakableAllowedToken;
+    mapping(address => bool) public isDisabledAllowedToken;
     struct allowedTokenDetails {
         address admin;
         address rewardToken;
@@ -30,15 +31,31 @@ contract SavvyFinanceStaking is Ownable {
         require(isAllowedToken[_token] == false, "Token already allowed.");
         allowedTokens.push(_token);
         isAllowedToken[_token] = true;
+        isStakableAllowedToken[_token] = true;
         allowedTokensData[_token].admin = msg.sender;
         allowedTokensData[_token].rewardToken = _token;
-        isStakableAllowedToken[_token] = true;
     }
 
     function removeAllowedToken(address _token) public onlyOwner {
         require(isAllowedToken[_token] == true, "Token not allowed.");
+        delete allowedTokensData[_token];
+        delete isDisabledAllowedToken[_token];
+        delete isStakableAllowedToken[_token];
         delete isAllowedToken[_token];
         removeFrom(allowedTokens, _token);
+    }
+
+    function disableAllowedToken(address _token) public onlyOwner {
+        require(isAllowedToken[_token] == true, "Token not allowed.");
+        isDisabledAllowedToken[_token] = true;
+    }
+
+    function setAllowedTokenData(
+        address _token,
+        allowedTokenDetails memory _data
+    ) public {
+        require(isAllowedToken[_token] == true, "Token not allowed.");
+        allowedTokensData[_token] = _data;
     }
 
     function setAllowedTokenAdmin(address _token, address _admin)
