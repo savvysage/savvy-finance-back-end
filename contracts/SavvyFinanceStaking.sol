@@ -147,7 +147,7 @@ contract SavvyFinanceStaking is Ownable {
             keccak256(abi.encodePacked("stake"))
         ) {
             require(
-                isStakeableAllowedToken[_token] == true,
+                allowedTokensData[_token].isStakeable == true,
                 "Token not stakeable."
             );
             require(
