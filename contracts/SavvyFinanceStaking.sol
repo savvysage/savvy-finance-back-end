@@ -8,12 +8,12 @@ contract SavvyFinanceStaking is Ownable {
     address[] public allowedTokens;
     mapping(address => bool) public isAllowedToken;
     mapping(address => bool) public isDisabledAllowedToken;
-    mapping(address => bool) public isStakeableAllowedToken;
     struct allowedTokenDetails {
-        address admin;
         uint256 price;
         uint256 balance;
+        bool isStakeable;
         address rewardToken;
+        address admin;
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
     }
@@ -60,36 +60,42 @@ contract SavvyFinanceStaking is Ownable {
     mapping(address => rewardDetails[]) public allowedTokensRewardsData;
     uint256 public interestRate;
 
-    function addAllowedToken(address _token) public onlyOwner {
-        require(isAllowedToken[_token] == false, "Token already allowed.");
+    function addAllowedToken(
+        address _token,
+        bool _isStakeable,
+        address _rewardToken,
+        address _admin
+    ) public onlyOwner {
+        require(!isAllowedToken[_token], "Token already added.");
         allowedTokens.push(_token);
         isAllowedToken[_token] = true;
-        isStakeableAllowedToken[_token] = true;
-        allowedTokensData[_token].admin = msg.sender;
-        allowedTokensData[_token].rewardToken = _token;
+
+        allowedTokensData[_token].isStakeable = _isStakeable;
+        allowedTokensData[_token].rewardToken = _rewardToken == address(0x0)
+            ? _token
+            : _rewardToken;
+        allowedTokensData[_token].admin = _admin == address(0x0)
+            ? msg.sender
+            : _admin;
         allowedTokensData[_token].timestampAdded = block.timestamp;
     }
 
-    function removeAllowedToken(address _token) public onlyOwner {
-        require(isAllowedToken[_token] == true, "Token not allowed.");
-        delete allowedTokensData[_token];
-        delete isDisabledAllowedToken[_token];
-        delete isStakeableAllowedToken[_token];
-        delete isAllowedToken[_token];
-        removeFrom(allowedTokens, _token);
-    }
-
     function disableAllowedToken(address _token) public onlyOwner {
-        require(isAllowedToken[_token] == true, "Token not allowed.");
+        require(isAllowedToken[_token], "Token not allowed.");
         isDisabledAllowedToken[_token] = true;
     }
 
-    function setAllowedTokenData(
+    function updateAllowedTokenData(
         address _token,
-        allowedTokenDetails memory _data
-    ) public {
-        require(isAllowedToken[_token] == true, "Token not allowed.");
-        allowedTokensData[_token] = _data;
+        bool _isStakeable,
+        address _rewardToken,
+        address _admin
+    ) public onlyOwner {
+        require(isAllowedToken[_token], "Token not allowed.");
+        allowedTokensData[_token].isStakeable = _isStakeable;
+        if (_rewardToken != address(0x0))
+            allowedTokensData[_token].rewardToken = _rewardToken;
+        if (_admin != address(0x0)) allowedTokensData[_token].admin = _admin;
         allowedTokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
