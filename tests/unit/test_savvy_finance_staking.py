@@ -47,9 +47,9 @@ def test_token_is_allowed():
     tokens = get_tokens()
     add_allowed_tokens(savvy_finance_staking, tokens)
     remove_allowed_tokens(savvy_finance_staking, [tokens[0]])
-    assert savvy_finance_staking.isEnabledToken(tokens[0]) == False
-    assert savvy_finance_staking.isEnabledToken(tokens[1]) == True
-    assert savvy_finance_staking.isEnabledToken(tokens[2]) == True
+    assert savvy_finance_staking.tokenIsActive(tokens[0]) == False
+    assert savvy_finance_staking.tokenIsActive(tokens[1]) == True
+    assert savvy_finance_staking.tokenIsActive(tokens[2]) == True
 
 
 def test_stake_token():

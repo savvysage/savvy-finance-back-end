@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SavvyFinanceStaking is Ownable {
     address[] public tokens;
-    mapping(address => bool) public isEnabledToken;
     struct tokenDetails {
         address admin;
         uint256 price;
@@ -15,8 +14,9 @@ contract SavvyFinanceStaking is Ownable {
         uint256 timestampLastUpdated;
     }
     mapping(address => tokenDetails) public tokensData;
+    mapping(address => bool) public tokenIsActive;
     address[] public stakers;
-    mapping(address => bool) public isStaker;
+    mapping(address => bool) public stakerIsActive;
     mapping(address => uint256) public stakersUniqueTokensStaked;
     struct stakerDetails {
         uint256 balance;
@@ -65,20 +65,20 @@ contract SavvyFinanceStaking is Ownable {
     }
 
     function addToken(address _token, address _admin) public onlyOwner {
-        require(!tokenExists(_token), "Token already exist.");
+        require(!tokenExists(_token), "Token already exists.");
         tokens.push(_token);
         tokensData[_token].admin = _admin == address(0x0) ? msg.sender : _admin;
         tokensData[_token].timestampAdded = block.timestamp;
     }
 
-    function enableToken(address _token) public onlyOwner {
+    function activateToken(address _token) public onlyOwner {
         require(tokenExists(_token), "Token does not exist.");
-        isEnabledToken[_token] = true;
+        tokenIsActive[_token] = true;
     }
 
-    function disableToken(address _token) public onlyOwner {
+    function deactivateToken(address _token) public onlyOwner {
         require(tokenExists(_token), "Token does not exist.");
-        delete isEnabledToken[_token];
+        tokenIsActive[_token] = false;
     }
 
     function setTokenAdmin(address _token, address _admin) public onlyOwner {
@@ -87,7 +87,13 @@ contract SavvyFinanceStaking is Ownable {
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
-    function increaseTokenBalance(address _token, uint256 _amount) public {
+    function setTokenPrice(address _token, uint256 _price) public onlyOwner {
+        require(tokenExists(_token), "Token does not exist.");
+        tokensData[_token].price = _price;
+        tokensData[_token].timestampLastUpdated = block.timestamp;
+    }
+
+    function depositToken(address _token, uint256 _amount) public {
         require(tokenExists(_token), "Token does not exist.");
         require(
             msg.sender == tokensData[_token].admin,
@@ -102,7 +108,7 @@ contract SavvyFinanceStaking is Ownable {
         tokensData[_token].balance += _amount;
     }
 
-    function reduceTokenBalance(address _token, uint256 _amount) public {
+    function withdrawToken(address _token, uint256 _amount) public {
         require(tokenExists(_token), "Token does not exist.");
         require(
             msg.sender == tokensData[_token].admin,
@@ -117,52 +123,41 @@ contract SavvyFinanceStaking is Ownable {
         tokensData[_token].balance -= _amount;
     }
 
-    function updatetokensStakersData(
-        address _token,
-        address _staker,
-        uint256 _amount,
-        string memory _action
-    ) internal {
-        if (_staker == address(0x0)) _staker = msg.sender;
+    function stakeToken(address _token, uint256 _amount) public {
+        require(tokenIsActive[_token], "Token not active.");
         require(_amount > 0, "Amount must be greater than zero.");
-        if (
-            keccak256(abi.encodePacked(_action)) ==
-            keccak256(abi.encodePacked("stake"))
-        ) {
-            require(isEnabledToken[_token] == true, "Token not enabled.");
-            require(
-                IERC20(_token).balanceOf(_staker) >= _amount,
-                "Insufficient token balance."
-            );
-            IERC20(_token).transferFrom(_staker, address(this), _amount);
-            if (tokensStakersData[_token][_staker].balance == 0) {
-                if (stakersUniqueTokensStaked[_staker] == 0) {
-                    stakers.push(_staker);
-                    isStaker[_staker] = true;
-                }
-                stakersUniqueTokensStaked[_staker]++;
-                tokensStakersData[_token][_staker].rewardToken = _token;
+        require(
+            IERC20(_token).balanceOf(msg.sender) >= _amount,
+            "Insufficient token balance."
+        );
+        IERC20(_token).transferFrom(msg.sender, address(this), _amount);
+
+        if (tokensStakersData[_token][msg.sender].balance == 0) {
+            if (stakersUniqueTokensStaked[msg.sender] == 0) {
+                stakers.push(msg.sender);
+                stakerIsActive[msg.sender] = true;
             }
-            tokensStakersData[_token][_staker].balance += _amount;
+            stakersUniqueTokensStaked[msg.sender]++;
+            tokensStakersData[_token][msg.sender].rewardToken = _token;
         }
-        if (
-            keccak256(abi.encodePacked(_action)) ==
-            keccak256(abi.encodePacked("unstake"))
-        ) {
-            require(
-                tokensStakersData[_token][_staker].balance >= _amount,
-                "Amount is greater than token staking balance."
-            );
-            IERC20(_token).transfer(_staker, _amount);
-            if (tokensStakersData[_token][_staker].balance == _amount) {
-                if (stakersUniqueTokensStaked[_staker] == 1) {
-                    delete isStaker[_staker];
-                    removeFrom(stakers, _staker);
-                }
-                stakersUniqueTokensStaked[_staker]--;
+        tokensStakersData[_token][msg.sender].balance += _amount;
+    }
+
+    function unstakeToken(address _token, uint256 _amount) public {
+        // require(tokenIsActive[_token], "Token not active.");
+        require(_amount > 0, "Amount must be greater than zero.");
+        require(
+            tokensStakersData[_token][msg.sender].balance >= _amount,
+            "Amount is greater than token staking balance."
+        );
+        IERC20(_token).transfer(msg.sender, _amount);
+        if (tokensStakersData[_token][msg.sender].balance == _amount) {
+            if (stakersUniqueTokensStaked[msg.sender] == 1) {
+                stakerIsActive[msg.sender] = false;
             }
-            tokensStakersData[_token][_staker].balance -= _amount;
+            stakersUniqueTokensStaked[msg.sender]--;
         }
+        tokensStakersData[_token][msg.sender].balance -= _amount;
     }
 
     function updateStakersRewardToken(
@@ -170,8 +165,8 @@ contract SavvyFinanceStaking is Ownable {
         address _token,
         address _reward_token
     ) public {
-        require(isEnabledToken[_token] == true, "Token not allowed.");
-        require(isEnabledToken[_reward_token] == true, "Token not allowed.");
+        require(tokenIsActive[_token] == true, "Token not allowed.");
+        require(tokenIsActive[_reward_token] == true, "Token not allowed.");
         tokensStakersData[_token][_staker].rewardToken = _reward_token;
     }
 
