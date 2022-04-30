@@ -18,9 +18,9 @@ def test_add_allowed_tokens():
     savvy_finance_staking = deploy_savvy_finance_staking(savvy_finance.address, account)
     tokens = get_tokens()
     add_allowed_tokens(savvy_finance_staking, tokens)
-    assert savvy_finance_staking.allowedTokens(0) == tokens[0]
-    assert savvy_finance_staking.allowedTokens(1) == tokens[1]
-    assert savvy_finance_staking.allowedTokens(2) == tokens[2]
+    assert savvy_finance_staking.tokens(0) == tokens[0]
+    assert savvy_finance_staking.tokens(1) == tokens[1]
+    assert savvy_finance_staking.tokens(2) == tokens[2]
 
 
 def test_remove_allowed_tokens():
@@ -32,10 +32,10 @@ def test_remove_allowed_tokens():
     tokens = get_tokens()
     add_allowed_tokens(savvy_finance_staking, tokens)
     remove_allowed_tokens(savvy_finance_staking, [tokens[0]])
-    assert savvy_finance_staking.allowedTokens(0) == tokens[2]
-    assert savvy_finance_staking.allowedTokens(1) == tokens[1]
+    assert savvy_finance_staking.tokens(0) == tokens[2]
+    assert savvy_finance_staking.tokens(1) == tokens[1]
     with pytest.raises(exceptions.VirtualMachineError):
-        savvy_finance_staking.allowedTokens(2)
+        savvy_finance_staking.tokens(2)
 
 
 def test_token_is_allowed():
@@ -47,9 +47,9 @@ def test_token_is_allowed():
     tokens = get_tokens()
     add_allowed_tokens(savvy_finance_staking, tokens)
     remove_allowed_tokens(savvy_finance_staking, [tokens[0]])
-    assert savvy_finance_staking.isAllowedToken(tokens[0]) == False
-    assert savvy_finance_staking.isAllowedToken(tokens[1]) == True
-    assert savvy_finance_staking.isAllowedToken(tokens[2]) == True
+    assert savvy_finance_staking.isEnabledToken(tokens[0]) == False
+    assert savvy_finance_staking.isEnabledToken(tokens[1]) == True
+    assert savvy_finance_staking.isEnabledToken(tokens[2]) == True
 
 
 def test_stake_token():
@@ -66,7 +66,7 @@ def test_stake_token():
     ).wait(1)
     assert savvy_finance.balanceOf(savvy_finance_staking.address) == stake_amount_1
     assert (
-        savvy_finance_staking.allowedTokensStakersBalances(
+        savvy_finance_staking.tokensStakersBalances(
             savvy_finance.address, account.address
         )
         == stake_amount_1
@@ -86,7 +86,7 @@ def test_stake_token_again():
     total_stake_amount = stake_amount_1 + stake_amount_2
     assert savvy_finance.balanceOf(savvy_finance_staking.address) == total_stake_amount
     assert (
-        savvy_finance_staking.allowedTokensStakersBalances(
+        savvy_finance_staking.tokensStakersBalances(
             savvy_finance.address, account.address
         )
         == total_stake_amount
@@ -106,7 +106,7 @@ def test_stake_token_another():
     ).wait(1)
     assert savvy_finance_2.balanceOf(savvy_finance_staking.address) == stake_amount
     assert (
-        savvy_finance_staking.allowedTokensStakersBalances(
+        savvy_finance_staking.tokensStakersBalances(
             savvy_finance_2.address, account.address
         )
         == stake_amount
@@ -124,7 +124,7 @@ def test_unstake_token():
     ).wait(1)
     assert savvy_finance.balanceOf(savvy_finance_staking.address) == unstake_amount_1
     assert (
-        savvy_finance_staking.allowedTokensStakersBalances(
+        savvy_finance_staking.tokensStakersBalances(
             savvy_finance.address, account.address
         )
         == unstake_amount_1
@@ -146,7 +146,7 @@ def test_unstake_token_again():
     ).wait(1)
     assert savvy_finance.balanceOf(savvy_finance_staking.address) == 0
     assert (
-        savvy_finance_staking.allowedTokensStakersBalances(
+        savvy_finance_staking.tokensStakersBalances(
             savvy_finance.address, account.address
         )
         == 0
@@ -168,7 +168,7 @@ def test_unstake_token_another():
     ).wait(1)
     assert savvy_finance_2.balanceOf(savvy_finance_staking.address) == 0
     assert (
-        savvy_finance_staking.allowedTokensStakersBalances(
+        savvy_finance_staking.tokensStakersBalances(
             savvy_finance_2.address, account.address
         )
         == 0

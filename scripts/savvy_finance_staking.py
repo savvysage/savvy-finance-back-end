@@ -28,7 +28,7 @@ def get_tokens():
 
 def add_allowed_tokens(contract, tokens):
     for token in tokens:
-        contract.addAllowedToken(token).wait(1)
+        contract.addToken(token).wait(1)
 
 
 def remove_allowed_tokens(contract, tokens):
