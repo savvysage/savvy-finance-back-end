@@ -6,55 +6,42 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SavvyFinanceStaking is Ownable {
     address[] public tokens;
-    struct tokenDetails {
+    mapping(address => bool) public tokenIsActive;
+    struct Token {
         address admin;
         uint256 price;
         uint256 balance;
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
     }
-    mapping(address => tokenDetails) public tokensData;
-    mapping(address => bool) public tokenIsActive;
+    mapping(address => Token) public tokensData;
     address[] public stakers;
     mapping(address => bool) public stakerIsActive;
     mapping(address => uint256) public stakersUniqueTokensStaked;
-    struct stakerDetails {
+    struct Staker {
         uint256 balance;
         address rewardToken;
         uint256 rewardBalance;
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
     }
-    mapping(address => mapping(address => stakerDetails))
-        public tokensStakersData;
-    struct stakerRewardSwapDetails {
+    mapping(address => mapping(address => Staker)) public tokensStakersData;
+    struct StakerRewardSwap {
         bool isSwapped;
         address token;
         uint256 amount;
-        uint256 initialBalance;
-        uint256 finalBalance;
-        uint256 timestampAdded;
-        uint256 timestampLastUpdated;
     }
-    struct stakerRewardDetails {
-        address token;
+    struct StakerReward {
         uint256 amount;
-        uint256 initialBalance;
-        uint256 finalBalance;
-        stakerRewardSwapDetails swapData;
-        uint256 timestampAdded;
-        uint256 timestampLastUpdated;
+        StakerRewardSwap swapData;
     }
-    struct rewardDetails {
-        address token;
+    struct TokenReward {
         uint256 amount;
-        uint256 initialBalance;
-        uint256 finalBalance;
-        mapping(address => stakerRewardDetails) stakersRewardsData;
+        mapping(address => StakerReward) stakersRewardsData;
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
     }
-    mapping(address => rewardDetails[]) public tokensRewardsData;
+    mapping(address => TokenReward[]) public tokensRewardsData;
     uint256 public interestRate;
 
     function tokenExists(address _token) public returns (bool) {
@@ -131,7 +118,6 @@ contract SavvyFinanceStaking is Ownable {
             "Insufficient token balance."
         );
         IERC20(_token).transferFrom(msg.sender, address(this), _amount);
-
         if (tokensStakersData[_token][msg.sender].balance == 0) {
             if (stakersUniqueTokensStaked[msg.sender] == 0) {
                 stakers.push(msg.sender);
@@ -160,35 +146,54 @@ contract SavvyFinanceStaking is Ownable {
         tokensStakersData[_token][msg.sender].balance -= _amount;
     }
 
-    function updateStakersRewardToken(
-        address _staker,
-        address _token,
-        address _reward_token
-    ) public {
-        require(tokenIsActive[_token] == true, "Token not allowed.");
-        require(tokenIsActive[_reward_token] == true, "Token not allowed.");
-        tokensStakersData[_token][_staker].rewardToken = _reward_token;
+    function updateStakersRewardToken(address _token, address _reward_token)
+        public
+    {
+        require(stakerIsActive[msg.sender], "You have no staked token.");
+        require(tokenIsActive[_token], "Token not active.");
+        require(tokenIsActive[_reward_token], "Reward token not active.");
+        if (tokensStakersData[_token][msg.sender].rewardBalance > 0) {
+            IERC20(tokensStakersData[_token][msg.sender].rewardToken).transfer(
+                msg.sender,
+                tokensStakersData[_token][msg.sender].rewardBalance
+            );
+
+            tokensStakersData[_token][msg.sender].rewardBalance = 0;
+        }
+        tokensStakersData[_token][msg.sender].rewardToken = _reward_token;
     }
 
     function rewardStakers() public onlyOwner {
-        for (
-            uint256 tokensIndex = 0;
-            tokensIndex < tokens.length;
-            tokensIndex++
-        ) {
-            address token = tokens[tokensIndex];
+        for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
+            address token = tokens[tokenIndex];
+            if (!tokenIsActive[token]) continue;
             uint256 tokenPrice = tokensData[token].price;
+            uint256 tokenRewardIndex = tokensRewardsData[token].length;
+            uint256 tokenRewardAmount;
             for (
-                uint256 stakersIndex = 0;
-                stakersIndex < stakers.length;
-                stakersIndex++
+                uint256 stakerIndex = 0;
+                stakerIndex < stakers.length;
+                stakerIndex++
             ) {
-                address staker = stakers[stakersIndex];
+                address staker = stakers[stakerIndex];
+                if (!stakerIsActive[staker]) continue;
                 uint256 stakerTokenBalance = tokensStakersData[token][staker]
                     .balance;
-                uint256 stakerReward = (stakerTokenBalance * tokenPrice) /
+                if (stakerTokenBalance <= 0) continue;
+                uint256 stakerRewardAmount = (stakerTokenBalance * tokenPrice) /
                     (100 / interestRate);
+                tokenRewardAmount += stakerRewardAmount;
+                tokensRewardsData[token][tokenRewardIndex]
+                    .stakersRewardsData[staker]
+                    .amount = stakerRewardAmount;
+                tokensStakersData[token][staker]
+                    .rewardBalance += stakerRewardAmount;
             }
+            tokensData[token].balance -= tokenRewardAmount;
+            tokensRewardsData[token][tokenRewardIndex]
+                .amount = tokenRewardAmount;
+            tokensRewardsData[token][tokenRewardIndex].timestampAdded = block
+                .timestamp;
         }
     }
 
