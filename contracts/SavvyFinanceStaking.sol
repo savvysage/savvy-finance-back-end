@@ -17,6 +17,14 @@ contract SavvyFinanceStaking is Ownable {
     }
     mapping(address => TokenDetails) public tokensData;
 
+    struct TokenRewardDetails {
+        uint256 amount;
+        mapping(address => uint256) stakerAmount;
+        uint256 timestampAdded;
+        uint256 timestampLastUpdated;
+    }
+    mapping(address => TokenRewardDetails[]) public tokensRewardsData;
+
     address[] public stakers;
     mapping(address => bool) public stakerIsActive;
     struct StakerDetails {
@@ -33,6 +41,7 @@ contract SavvyFinanceStaking is Ownable {
         uint256 timestampLastUpdated;
     }
     mapping(address => mapping(address => StakingDetails)) public stakingData;
+
     struct StakingRewardDetails {
         uint256 balance;
         uint256 timestampAdded;
@@ -40,14 +49,6 @@ contract SavvyFinanceStaking is Ownable {
     }
     mapping(address => mapping(address => StakingRewardDetails))
         public stakingRewardsData;
-
-    struct TokenRewardDetails {
-        uint256 amount;
-        mapping(address => uint256) stakerAmount;
-        uint256 timestampAdded;
-        uint256 timestampLastUpdated;
-    }
-    mapping(address => TokenRewardDetails[]) public tokensRewardsData;
 
     function tokenExists(address _token) public returns (bool) {
         for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
@@ -146,6 +147,7 @@ contract SavvyFinanceStaking is Ownable {
                 stakerIsActive[msg.sender] = true;
             }
             stakersData[msg.sender].uniqueTokensStaked++;
+            stakersData[msg.sender].timestampLastUpdated = block.timestamp;
             stakingData[_token][msg.sender].rewardToken = _token;
         }
         stakingData[_token][msg.sender].balance += _amount;
@@ -163,6 +165,7 @@ contract SavvyFinanceStaking is Ownable {
                 stakerIsActive[msg.sender] = false;
             }
             stakersData[msg.sender].uniqueTokensStaked--;
+            stakersData[msg.sender].timestampLastUpdated = block.timestamp;
         }
         stakingData[_token][msg.sender].balance -= _amount;
         IERC20(_token).transfer(msg.sender, _amount);
@@ -171,7 +174,10 @@ contract SavvyFinanceStaking is Ownable {
     function setStakingRewardToken(address _token, address _reward_token)
         public
     {
-        require(stakerIsActive[msg.sender], "You have no staked token.");
+        require(
+            stakerIsActive[msg.sender],
+            "You do not have this token staked."
+        );
         require(tokenIsActive[_token], "Token not active.");
         require(tokenIsActive[_reward_token], "Reward token not active.");
         stakingData[_token][msg.sender].rewardToken = _reward_token;
@@ -216,8 +222,8 @@ contract SavvyFinanceStaking is Ownable {
             stakingRewardsData[_token][msg.sender].balance >= _amount,
             "Amount is greater than token reward balance."
         );
-        IERC20(_token).transfer(msg.sender, _amount);
         stakingRewardsData[_token][msg.sender].balance -= _amount;
+        IERC20(_token).transfer(msg.sender, _amount);
     }
 
     function transferToken(

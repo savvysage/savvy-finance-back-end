@@ -1,7 +1,7 @@
 from brownie import (
-    MockWETH,
-    MockDAI,
-    LinkToken,
+    WETHToken,
+    DAIToken,
+    LINKToken,
     MockOracle,
     MockV3Aggregator,
     VRFCoordinatorV2Mock,
@@ -23,9 +23,9 @@ LOCAL_BLOCKCHAIN_ENVIRONMENTS = (
 )
 
 contract_name_to_mock = {
-    "weth_token": MockWETH,
-    "dai_token": MockDAI,
-    "link_token": LinkToken,
+    "weth_token": WETHToken,
+    "dai_token": DAIToken,
+    "link_token": LINKToken,
     "oracle": MockOracle,
     "eth_usd_price_feed": MockV3Aggregator,
     "vrf_coordinator": VRFCoordinatorV2Mock,
@@ -90,12 +90,12 @@ def deploy_contract_mocks():
     print(f"Current active network is {network.show_active()}.")
     print("Deploying Contract Mocks...")
     account = get_account()
-    print("Deploying Mock WETH...")
-    mock_weth = MockWETH.deploy({"from": account})
-    print("Deploying Mock DAI...")
-    mock_dai = MockDAI.deploy({"from": account})
-    print("Deploying Mock Link Token...")
-    link_token = LinkToken.deploy({"from": account})
+    print("Deploying Mock WETH Token...")
+    weth_token = WETHToken.deploy({"from": account})
+    print("Deploying Mock DAI Token...")
+    dai_token = DAIToken.deploy({"from": account})
+    print("Deploying Mock LINK Token...")
+    link_token = LINKToken.deploy({"from": account})
     print("Deploying Mock Oracle...")
     mock_oracle = MockOracle.deploy(link_token.address, {"from": account})
     print("Deploying Mock Price Feed...")
