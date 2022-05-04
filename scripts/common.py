@@ -1,6 +1,8 @@
 from brownie import (
     WETHToken,
     DAIToken,
+    WBNBToken,
+    BUSDToken,
     LINKToken,
     MockOracle,
     MockV3Aggregator,
@@ -25,6 +27,8 @@ LOCAL_BLOCKCHAIN_ENVIRONMENTS = (
 contract_name_to_mock = {
     "weth_token": WETHToken,
     "dai_token": DAIToken,
+    "wbnb_token": WBNBToken,
+    "busd_token": BUSDToken,
     "link_token": LINKToken,
     "oracle": MockOracle,
     "eth_usd_price_feed": MockV3Aggregator,

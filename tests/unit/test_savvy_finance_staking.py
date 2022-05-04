@@ -4,20 +4,20 @@ from scripts.savvy_finance_staking import (
     deploy_savvy_finance,
     deploy_savvy_finance_staking,
     get_tokens,
-    add_allowed_tokens,
+    add_tokens,
     remove_allowed_tokens,
 )
 import pytest
 
 
-def test_add_allowed_tokens():
+def test_add_tokens():
     if network.show_active() not in LOCAL_BLOCKCHAIN_ENVIRONMENTS:
         pytest.skip()
     account = get_account()
     savvy_finance = deploy_savvy_finance(account)
     savvy_finance_staking = deploy_savvy_finance_staking(savvy_finance.address, account)
     tokens = get_tokens()
-    add_allowed_tokens(savvy_finance_staking, tokens)
+    add_tokens(savvy_finance_staking, tokens)
     assert savvy_finance_staking.tokens(0) == tokens[0]
     assert savvy_finance_staking.tokens(1) == tokens[1]
     assert savvy_finance_staking.tokens(2) == tokens[2]
@@ -30,7 +30,7 @@ def test_remove_allowed_tokens():
     savvy_finance = deploy_savvy_finance(account)
     savvy_finance_staking = deploy_savvy_finance_staking(savvy_finance.address, account)
     tokens = get_tokens()
-    add_allowed_tokens(savvy_finance_staking, tokens)
+    add_tokens(savvy_finance_staking, tokens)
     remove_allowed_tokens(savvy_finance_staking, [tokens[0]])
     assert savvy_finance_staking.tokens(0) == tokens[2]
     assert savvy_finance_staking.tokens(1) == tokens[1]
@@ -45,7 +45,7 @@ def test_token_is_allowed():
     savvy_finance = deploy_savvy_finance(account)
     savvy_finance_staking = deploy_savvy_finance_staking(savvy_finance.address, account)
     tokens = get_tokens()
-    add_allowed_tokens(savvy_finance_staking, tokens)
+    add_tokens(savvy_finance_staking, tokens)
     remove_allowed_tokens(savvy_finance_staking, [tokens[0]])
     assert savvy_finance_staking.tokenIsActive(tokens[0]) == False
     assert savvy_finance_staking.tokenIsActive(tokens[1]) == True
@@ -58,7 +58,7 @@ def test_stake_token():
     account = get_account()
     savvy_finance = deploy_savvy_finance(account)
     savvy_finance_staking = deploy_savvy_finance_staking(savvy_finance.address, account)
-    add_allowed_tokens(savvy_finance_staking, [savvy_finance.address])
+    add_tokens(savvy_finance_staking, [savvy_finance.address])
     stake_amount_1 = web3.toWei(10000, "ether")
     savvy_finance.approve(savvy_finance_staking.address, stake_amount_1).wait(1)
     savvy_finance_staking.stakeToken(
@@ -98,7 +98,7 @@ def test_stake_token_again():
 def test_stake_token_another():
     account, savvy_finance, savvy_finance_staking, stake_amount_1 = test_stake_token()
     savvy_finance_2 = deploy_savvy_finance(account)
-    add_allowed_tokens(savvy_finance_staking, [savvy_finance_2.address])
+    add_tokens(savvy_finance_staking, [savvy_finance_2.address])
     stake_amount = web3.toWei(10000, "ether")
     savvy_finance_2.approve(savvy_finance_staking.address, stake_amount).wait(1)
     savvy_finance_staking.stakeToken(

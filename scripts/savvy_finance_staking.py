@@ -10,15 +10,14 @@ def deploy_savvy_finance(account=get_account()):
     )
 
 
-def deploy_savvy_finance_staking(reward_token_address, account=get_account()):
+def deploy_savvy_finance_staking(account=get_account()):
     return SavvyFinanceStaking.deploy(
-        reward_token_address,
         {"from": account},
         publish_source=config["networks"][network.show_active()].get("verify", False),
     )
 
 
-def get_tokens():
+def get_eth_tokens():
     return [
         get_contract("weth_token").address,
         get_contract("dai_token").address,
@@ -26,46 +25,70 @@ def get_tokens():
     ]
 
 
-def add_allowed_tokens(contract, tokens):
-    for token in tokens:
-        contract.addToken(token).wait(1)
+def get_bsc_tokens():
+    return [
+        get_contract("wbnb_token").address,
+        get_contract("busd_token").address,
+        get_contract("link_token").address,
+    ]
 
 
-def remove_allowed_tokens(contract, tokens):
+def add_tokens(contract, tokens, account=get_account()):
     for token in tokens:
-        contract.removeAllowedToken(token).wait(1)
+        contract.addToken(token, config["addresses"]["zero"], {"from": account}).wait(1)
+
+
+def activate_tokens(contract, tokens, account=get_account()):
+    for token in tokens:
+        contract.activateToken(token, {"from": account}).wait(1)
 
 
 def main():
     savvy_finance = SavvyFinance[-1]
-    savvy_finance_2 = SavvyFinance[-2]
     savvy_finance_staking = SavvyFinanceStaking[-1]
 
     # savvy_finance = deploy_savvy_finance()
-    # savvy_finance_staking = deploy_savvy_finance_staking(savvy_finance.address)
+    # savvy_finance_staking = deploy_savvy_finance_staking()
 
-    # tokens = get_tokens()
-    # tokens.append(savvy_finance.address)
-    # add_allowed_tokens(savvy_finance_staking, tokens)
+    tokens = get_bsc_tokens()
+    tokens.append(savvy_finance.address)
+    add_tokens(savvy_finance_staking, tokens)
+    activate_tokens(savvy_finance_staking, tokens)
 
-    # stake_amount = web3.toWei(10000, "ether")
-    # savvy_finance.approve(savvy_finance_staking.address, stake_amount).wait(1)
-    # savvy_finance_staking.stakeToken(savvy_finance.address, stake_amount, get_address("null0")).wait(1)
+    savvy_finance_staking.setTokenPrice(
+        tokens[3], web3.toWei(10, "ether"), {"from": get_account()}
+    ).wait(1)
+    savvy_finance_staking.setTokenInterestRate(
+        tokens[3], web3.toWei(1, "ether"), {"from": get_account()}
+    ).wait(1)
+    deposit_amount = web3.toWei(20000, "ether")
+    savvy_finance.approve(
+        savvy_finance_staking.address, deposit_amount, {"from": get_account()}
+    ).wait(1)
+    savvy_finance_staking.depositToken(
+        tokens[3], deposit_amount, {"from": get_account()}
+    ).wait(1)
+    withdraw_amount = web3.toWei(10000, "ether")
+    savvy_finance_staking.withdrawToken(
+        tokens[3], withdraw_amount, {"from": get_account()}
+    ).wait(1)
 
-    # savvy_finance_2 = deploy_savvy_finance()
-    # add_allowed_tokens(savvy_finance_staking, [savvy_finance_2.address])
-    # stake_amount_2 = web3.toWei(10000, "ether")
-    # savvy_finance_2.approve(savvy_finance_staking.address, stake_amount_2).wait(1)
-    # savvy_finance_staking.stakeToken(savvy_finance_2.address, stake_amount_2, get_address("null0")).wait(1)
+    stake_amount = web3.toWei(1000, "ether")
+    savvy_finance.approve(
+        savvy_finance_staking.address, stake_amount, {"from": get_account()}
+    ).wait(1)
+    savvy_finance_staking.stakeToken(
+        tokens[3], stake_amount, {"from": get_account()}
+    ).wait(1)
+    unstake_amount = web3.toWei(500, "ether")
+    savvy_finance_staking.unstakeToken(
+        tokens[3], unstake_amount, {"from": get_account()}
+    ).wait(1)
+    # savvy_finance_staking.rewardStakers().wait(1)
 
-    # unstake_amount_2 = web3.toWei(10000, "ether")
-    # savvy_finance_staking.unstakeToken(savvy_finance_2.address, unstake_amount_2, get_address("null0")).wait(
-    #     1
-    # )
+    # weth_token = get_contract("weth_token")
 
-    weth_token = get_contract("weth_token")
-
-    # add_allowed_tokens(savvy_finance_staking, [weth_token.address])
+    # add_tokens(savvy_finance_staking, [weth_token.address])
     # savvy_finance_staking.setAllowedTokenPriceFeed(
     #     weth_token.address,
     #     "0x8A753747A1Fa494EC906cE90E9f37563A8AF630e",
