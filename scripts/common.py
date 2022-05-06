@@ -1,17 +1,15 @@
 from brownie import (
-    WETHToken,
-    DAIToken,
-    WBNBToken,
-    BUSDToken,
-    LINKToken,
+    # MockToken,
+    MockLINKToken,
     MockOracle,
     MockV3Aggregator,
     VRFCoordinatorV2Mock,
-    Contract,
+    # Contract,
     network,
     accounts,
     config,
     web3,
+    interface,
 )
 
 NON_FORKED_LOCAL_BLOCKCHAIN_ENVIRONMENTS = ["hardhat", "development", "ganache"]
@@ -25,11 +23,8 @@ LOCAL_BLOCKCHAIN_ENVIRONMENTS = (
 )
 
 contract_name_to_mock = {
-    "weth_token": WETHToken,
-    "dai_token": DAIToken,
-    "wbnb_token": WBNBToken,
-    "busd_token": BUSDToken,
-    "link_token": LINKToken,
+    # "token": MockToken,
+    "link_token": MockLINKToken,
     "oracle": MockOracle,
     "eth_usd_price_feed": MockV3Aggregator,
     "vrf_coordinator": VRFCoordinatorV2Mock,
@@ -44,7 +39,9 @@ def get_account(index=0, id=None):
     return accounts.add(config["wallets"]["development"]["private_key"])
 
 
-def get_address(address_name):
+def get_address(address_name, address_network=None):
+    if address_network:
+        return config["networks"][address_network]["contracts"][address_name]
     return config["addresses"][address_name]
 
 
@@ -64,25 +61,34 @@ def get_contract(contract_name):
             Contract of the type specificed by the dictionary. This could be either
             a mock or the 'real' contract on a live network.
     """
-    contract_mock = contract_name_to_mock[contract_name]
     if network.show_active() in NON_FORKED_LOCAL_BLOCKCHAIN_ENVIRONMENTS:
-        if len(contract_mock) <= 0:
-            deploy_contract_mocks()
-        contract = contract_mock[-1]
+        try:
+            contract_mock = contract_name_to_mock[contract_name]
+            if len(contract_mock) <= 0:
+                deploy_contract_mocks()
+            contract = contract_mock[-1]
+        except KeyError:
+            print(
+                f"""
+                {contract_name} contract mock not found for {network.show_active()} network.
+                Add it to contract_name_to_mock in scripts/common.py
+                """
+            )
     else:
         try:
             contract_address = config["networks"][network.show_active()]["contracts"][
                 contract_name
             ]
-            contract = Contract.from_abi(
-                contract_mock._name, contract_address, contract_mock.abi
-            )
+            contract = interface.IERC20(contract_address)
+            # contract = Contract.from_abi(
+            #     contract_mock._name, contract_address, contract_mock.abi
+            # )
         except KeyError:
             print(
-                f"{contract_name} contract address not found for {network.show_active()} network."
-            )
-            print(
-                f'Add it to config["networks"][{network.show_active()}]["contracts"] in brownie-config.yaml'
+                f"""
+                {contract_name} contract address not found for {network.show_active()} network.
+                Add it to config["networks"][{network.show_active()}]["contracts"] in brownie-config.yaml
+                """
             )
     return contract
 
@@ -94,12 +100,10 @@ def deploy_contract_mocks():
     print(f"Current active network is {network.show_active()}.")
     print("Deploying Contract Mocks...")
     account = get_account()
-    print("Deploying Mock WETH Token...")
-    weth_token = WETHToken.deploy({"from": account})
-    print("Deploying Mock DAI Token...")
-    dai_token = DAIToken.deploy({"from": account})
+    # print("Deploying Mock Token...")
+    # token = MockToken.deploy({"from": account})
     print("Deploying Mock LINK Token...")
-    link_token = LINKToken.deploy({"from": account})
+    link_token = MockLINKToken.deploy({"from": account})
     print("Deploying Mock Oracle...")
     mock_oracle = MockOracle.deploy(link_token.address, {"from": account})
     print("Deploying Mock Price Feed...")

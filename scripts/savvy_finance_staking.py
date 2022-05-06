@@ -1,5 +1,6 @@
 from brownie import SavvyFinance, SavvyFinanceStaking, network, config, web3
-from scripts.common import get_account, get_contract
+from scripts.common import get_account, get_address, get_contract
+import requests
 
 
 def deploy_savvy_finance(account=get_account()):
@@ -17,30 +18,35 @@ def deploy_savvy_finance_staking(account=get_account()):
     )
 
 
-def get_eth_tokens():
-    return [
-        get_contract("weth_token").address,
-        get_contract("dai_token").address,
-        get_contract("link_token").address,
-    ]
-
-
-def get_bsc_tokens():
-    return [
-        get_contract("wbnb_token").address,
-        get_contract("busd_token").address,
-        get_contract("link_token").address,
-    ]
+def get_tokens():
+    return {
+        "wbnb_token": get_contract("wbnb_token").address,
+        "busd_token": get_contract("busd_token").address,
+        "link_token": get_contract("link_token").address,
+    }
 
 
 def add_tokens(contract, tokens, account=get_account()):
     for token in tokens:
-        contract.addToken(token, config["addresses"]["zero"], {"from": account}).wait(1)
+        contract.addToken(
+            tokens[token], config["addresses"]["zero"], {"from": account}
+        ).wait(1)
 
 
 def activate_tokens(contract, tokens, account=get_account()):
     for token in tokens:
-        contract.activateToken(token, {"from": account}).wait(1)
+        contract.activateToken(tokens[token], {"from": account}).wait(1)
+
+
+def set_token_price(contract, tokens, account=get_account()):
+    for token in tokens:
+        response = requests.get(
+            "https://api.pancakeswap.info/api/v2/tokens/{}".format(
+                get_address(token, "bsc-main-fork")
+            )
+        )
+        price = web3.toWei(response.json()["data"]["price"], "ether")
+        contract.setTokenPrice(tokens[token], price, {"from": account}).wait(1)
 
 
 def main():
@@ -50,41 +56,48 @@ def main():
     # savvy_finance = deploy_savvy_finance()
     # savvy_finance_staking = deploy_savvy_finance_staking()
 
-    tokens = get_bsc_tokens()
-    tokens.append(savvy_finance.address)
-    add_tokens(savvy_finance_staking, tokens)
-    activate_tokens(savvy_finance_staking, tokens)
+    tokens = get_tokens()
+    # tokens.append(savvy_finance.address)
+    tokens["svf_token"] = savvy_finance.address
+    # add_tokens(savvy_finance_staking, tokens)
+    # activate_tokens(savvy_finance_staking, tokens)
+    # set_token_price(savvy_finance_staking, {"wbnb_token": tokens["wbnb_token"]})
+    token_price = savvy_finance_staking.tokensData(tokens["wbnb_token"])[1]
+    print(token_price)
+    print(web3.fromWei(token_price, "ether"))
 
-    savvy_finance_staking.setTokenPrice(
-        tokens[3], web3.toWei(10, "ether"), {"from": get_account()}
-    ).wait(1)
-    savvy_finance_staking.setTokenInterestRate(
-        tokens[3], web3.toWei(1, "ether"), {"from": get_account()}
-    ).wait(1)
-    deposit_amount = web3.toWei(20000, "ether")
-    savvy_finance.approve(
-        savvy_finance_staking.address, deposit_amount, {"from": get_account()}
-    ).wait(1)
-    savvy_finance_staking.depositToken(
-        tokens[3], deposit_amount, {"from": get_account()}
-    ).wait(1)
-    withdraw_amount = web3.toWei(10000, "ether")
-    savvy_finance_staking.withdrawToken(
-        tokens[3], withdraw_amount, {"from": get_account()}
-    ).wait(1)
+    # savvy_finance_staking.setTokenPrice(
+    #     tokens[3], web3.toWei(10, "ether"), {"from": get_account()}
+    # ).wait(1)
+    # savvy_finance_staking.setTokenInterestRate(
+    #     tokens[3], web3.toWei(1, "ether"), {"from": get_account()}
+    # ).wait(1)
+    # deposit_amount = web3.toWei(20000, "ether")
+    # savvy_finance.approve(
+    #     savvy_finance_staking.address, deposit_amount, {"from": get_account()}
+    # ).wait(1)
+    # savvy_finance_staking.depositToken(
+    #     tokens[3], deposit_amount, {"from": get_account()}
+    # ).wait(1)
+    # withdraw_amount = web3.toWei(10000, "ether")
+    # savvy_finance_staking.withdrawToken(
+    #     tokens[3], withdraw_amount, {"from": get_account()}
+    # ).wait(1)
 
-    stake_amount = web3.toWei(1000, "ether")
-    savvy_finance.approve(
-        savvy_finance_staking.address, stake_amount, {"from": get_account()}
-    ).wait(1)
-    savvy_finance_staking.stakeToken(
-        tokens[3], stake_amount, {"from": get_account()}
-    ).wait(1)
-    unstake_amount = web3.toWei(500, "ether")
-    savvy_finance_staking.unstakeToken(
-        tokens[3], unstake_amount, {"from": get_account()}
-    ).wait(1)
+    # stake_amount = web3.toWei(1000, "ether")
+    # savvy_finance.approve(
+    #     savvy_finance_staking.address, stake_amount, {"from": get_account()}
+    # ).wait(1)
+    # savvy_finance_staking.stakeToken(
+    #     tokens[3], stake_amount, {"from": get_account()}
+    # ).wait(1)
+    # unstake_amount = web3.toWei(500, "ether")
+    # savvy_finance_staking.unstakeToken(
+    #     tokens[3], unstake_amount, {"from": get_account()}
+    # ).wait(1)
     # savvy_finance_staking.rewardStakers().wait(1)
+
+    ###############################################
 
     # weth_token = get_contract("weth_token")
 
