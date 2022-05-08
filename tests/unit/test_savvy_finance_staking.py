@@ -1,5 +1,9 @@
 from brownie import network, exceptions, web3
-from scripts.common import LOCAL_BLOCKCHAIN_ENVIRONMENTS, get_account, get_address
+from scripts.common import (
+    LOCAL_BLOCKCHAIN_ENVIRONMENTS,
+    get_account,
+    get_contract_address,
+)
 from scripts.savvy_finance_staking import (
     deploy_savvy_finance,
     deploy_savvy_finance_staking,
@@ -62,7 +66,7 @@ def test_stake_token():
     stake_amount_1 = web3.toWei(10000, "ether")
     savvy_finance.approve(savvy_finance_staking.address, stake_amount_1).wait(1)
     savvy_finance_staking.stakeToken(
-        savvy_finance.address, stake_amount_1, get_address("null0")
+        savvy_finance.address, stake_amount_1, get_contract_address("null0")
     ).wait(1)
     assert savvy_finance.balanceOf(savvy_finance_staking.address) == stake_amount_1
     assert (
@@ -81,7 +85,7 @@ def test_stake_token_again():
     stake_amount_2 = web3.toWei(10000, "ether")
     savvy_finance.approve(savvy_finance_staking.address, stake_amount_2).wait(1)
     savvy_finance_staking.stakeToken(
-        savvy_finance.address, stake_amount_2, get_address("null0")
+        savvy_finance.address, stake_amount_2, get_contract_address("null0")
     ).wait(1)
     total_stake_amount = stake_amount_1 + stake_amount_2
     assert savvy_finance.balanceOf(savvy_finance_staking.address) == total_stake_amount
@@ -102,7 +106,7 @@ def test_stake_token_another():
     stake_amount = web3.toWei(10000, "ether")
     savvy_finance_2.approve(savvy_finance_staking.address, stake_amount).wait(1)
     savvy_finance_staking.stakeToken(
-        savvy_finance_2.address, stake_amount, get_address("null0")
+        savvy_finance_2.address, stake_amount, get_contract_address("null0")
     ).wait(1)
     assert savvy_finance_2.balanceOf(savvy_finance_staking.address) == stake_amount
     assert (
@@ -120,7 +124,7 @@ def test_unstake_token():
     account, savvy_finance, savvy_finance_staking, stake_amount_1 = test_stake_token()
     unstake_amount_1 = stake_amount_1 / 2
     savvy_finance_staking.unstakeToken(
-        savvy_finance.address, unstake_amount_1, get_address("null0")
+        savvy_finance.address, unstake_amount_1, get_contract_address("null0")
     ).wait(1)
     assert savvy_finance.balanceOf(savvy_finance_staking.address) == unstake_amount_1
     assert (
@@ -142,7 +146,7 @@ def test_unstake_token_again():
         unstake_amount_1,
     ) = test_unstake_token()
     savvy_finance_staking.unstakeToken(
-        savvy_finance.address, unstake_amount_1, get_address("null0")
+        savvy_finance.address, unstake_amount_1, get_contract_address("null0")
     ).wait(1)
     assert savvy_finance.balanceOf(savvy_finance_staking.address) == 0
     assert (
@@ -164,7 +168,7 @@ def test_unstake_token_another():
         stake_amount,
     ) = test_stake_token_another()
     savvy_finance_staking.unstakeToken(
-        savvy_finance_2.address, stake_amount, get_address("null0")
+        savvy_finance_2.address, stake_amount, get_contract_address("null0")
     ).wait(1)
     assert savvy_finance_2.balanceOf(savvy_finance_staking.address) == 0
     assert (

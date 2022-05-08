@@ -1,6 +1,12 @@
 from brownie import SavvyFinance, SavvyFinanceStaking, network, config, web3
-from scripts.common import get_account, get_address, get_contract
-import requests
+from scripts.common import (
+    get_account,
+    get_address,
+    get_token_price,
+    get_lp_token_price,
+    get_contract_address,
+    get_contract,
+)
 
 
 def deploy_savvy_finance(account=get_account()):
@@ -27,29 +33,33 @@ def get_tokens():
 
 
 def add_tokens(contract, tokens, account=get_account()):
-    for token in tokens:
-        contract.addToken(
-            tokens[token], config["addresses"]["zero"], {"from": account}
-        ).wait(1)
+    for token_name in tokens:
+        token_address = tokens[token_name]
+        token_admin_address = get_address("zero")
+        contract.addToken(token_address, token_admin_address, {"from": account}).wait(1)
 
 
 def activate_tokens(contract, tokens, account=get_account()):
-    for token in tokens:
-        contract.activateToken(tokens[token], {"from": account}).wait(1)
+    for token_name in tokens:
+        token_address = tokens[token_name]
+        contract.activateToken(token_address, {"from": account}).wait(1)
 
 
 def set_token_price(contract, tokens, account=get_account()):
-    for token in tokens:
-        response = requests.get(
-            "https://api.pancakeswap.info/api/v2/tokens/{}".format(
-                get_address(token, "bsc-main-fork")
-            )
+    for token_name in tokens:
+        token_address = tokens[token_name]
+        token_price = web3.toWei(
+            get_token_price(get_contract_address(token_name, "bsc-main")), "ether"
         )
-        price = web3.toWei(response.json()["data"]["price"], "ether")
-        contract.setTokenPrice(tokens[token], price, {"from": account}).wait(1)
+        contract.setTokenPrice(token_address, token_price, {"from": account}).wait(1)
 
 
 def main():
+    contract1 = get_contract_address("wbnb_token", "bsc-main")
+    contract2 = get_contract_address("wbnb_busd_lp_token", "bsc-main")
+    print(get_token_price(contract1))
+    print(get_lp_token_price(contract2))
+    """
     savvy_finance = SavvyFinance[-1]
     savvy_finance_staking = SavvyFinanceStaking[-1]
 
@@ -61,11 +71,11 @@ def main():
     tokens["svf_token"] = savvy_finance.address
     # add_tokens(savvy_finance_staking, tokens)
     # activate_tokens(savvy_finance_staking, tokens)
-    # set_token_price(savvy_finance_staking, {"wbnb_token": tokens["wbnb_token"]})
+    set_token_price(savvy_finance_staking, {"wbnb_token": tokens["wbnb_token"]})
     token_price = savvy_finance_staking.tokensData(tokens["wbnb_token"])[1]
     print(token_price)
     print(web3.fromWei(token_price, "ether"))
-
+    """
     # savvy_finance_staking.setTokenPrice(
     #     tokens[3], web3.toWei(10, "ether"), {"from": get_account()}
     # ).wait(1)
@@ -113,7 +123,7 @@ def main():
     #     savvy_finance_staking.address, stake_amount, {"from": get_account()}
     # ).wait(1)
     # savvy_finance_staking.stakeToken(
-    #     weth_token.address, stake_amount, get_address("null0"), {"from": get_account()}
+    #     weth_token.address, stake_amount, get_address("zero"), {"from": get_account()}
     # ).wait(1)
 
     # savvy_finance.transfer(

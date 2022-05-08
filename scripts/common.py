@@ -4,13 +4,14 @@ from brownie import (
     MockOracle,
     MockV3Aggregator,
     VRFCoordinatorV2Mock,
-    # Contract,
+    Contract,
     network,
     accounts,
     config,
     web3,
     interface,
 )
+import requests
 
 NON_FORKED_LOCAL_BLOCKCHAIN_ENVIRONMENTS = ["hardhat", "development", "ganache"]
 FORKED_LOCAL_BLOCKCHAIN_ENVIRONMENTS = [
@@ -39,10 +40,40 @@ def get_account(index=0, id=None):
     return accounts.add(config["wallets"]["development"]["private_key"])
 
 
-def get_address(address_name, address_network=None):
-    if address_network:
-        return config["networks"][address_network]["contracts"][address_name]
+def get_address(address_name):
     return config["addresses"][address_name]
+
+
+def get_token_price(token_address, token_network=network.show_active()):
+    response = requests.get(
+        "https://api.pancakeswap.info/api/v2/tokens/{}".format(token_address)
+    )
+    return float(response.json()["data"]["price"])
+
+
+def get_lp_token_price(lp_token_address):
+    lp_token_contract = interface.IPancakePair(lp_token_address)
+    lp_token_supply = float(web3.fromWei(lp_token_contract.totalSupply(), "ether"))
+    lp_token_pair_0_address = lp_token_contract.token0()
+    lp_token_pair_1_address = lp_token_contract.token1()
+    lp_token_pair_reserves = lp_token_contract.getReserves()
+    lp_token_pair_0_reserve = float(web3.fromWei(lp_token_pair_reserves[0], "ether"))
+    lp_token_pair_1_reserve = float(web3.fromWei(lp_token_pair_reserves[1], "ether"))
+    lp_token_pair_0_price = get_token_price(lp_token_pair_0_address)
+    lp_token_pair_1_price = get_token_price(lp_token_pair_1_address)
+    lp_token_pair_0_value = lp_token_pair_0_reserve * lp_token_pair_0_price
+    lp_token_pair_1_value = lp_token_pair_1_reserve * lp_token_pair_1_price
+    lp_token_value = lp_token_pair_0_value + lp_token_pair_1_value
+    lp_token_price = lp_token_value / lp_token_supply
+    return lp_token_price
+
+
+def get_contract_address(
+    contract_address_name, contract_address_network=network.show_active()
+):
+    return config["networks"][contract_address_network]["contracts"][
+        contract_address_name
+    ]
 
 
 def get_contract(contract_name):
@@ -76,9 +107,7 @@ def get_contract(contract_name):
             )
     else:
         try:
-            contract_address = config["networks"][network.show_active()]["contracts"][
-                contract_name
-            ]
+            contract_address = get_contract_address(contract_name)
             contract = interface.IERC20(contract_address)
             # contract = Contract.from_abi(
             #     contract_mock._name, contract_address, contract_mock.abi
