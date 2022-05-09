@@ -34,24 +34,34 @@ def get_tokens():
 
 def add_tokens(contract, tokens, account=get_account()):
     for token_name in tokens:
-        token_address = tokens[token_name]
-        token_admin_address = get_address("zero")
-        contract.addToken(token_address, token_admin_address, {"from": account}).wait(1)
+        token = tokens[token_name]
+        token_admin = get_address("zero")
+        token_reward_token = get_address("zero")
+        token_type = 0
+        contract.addToken(
+            token, token_admin, token_reward_token, token_type, {"from": account}
+        ).wait(1)
 
 
 def activate_tokens(contract, tokens, account=get_account()):
     for token_name in tokens:
-        token_address = tokens[token_name]
-        contract.activateToken(token_address, {"from": account}).wait(1)
+        token = tokens[token_name]
+        contract.activateToken(token, {"from": account}).wait(1)
+
+
+def deactivate_tokens(contract, tokens, account=get_account()):
+    for token_name in tokens:
+        token = tokens[token_name]
+        contract.deactivateToken(token, {"from": account}).wait(1)
 
 
 def set_token_price(contract, tokens, account=get_account()):
     for token_name in tokens:
-        token_address = tokens[token_name]
+        token = tokens[token_name]
         token_price = web3.toWei(
             get_token_price(get_contract_address(token_name, "bsc-main")), "ether"
         )
-        contract.setTokenPrice(token_address, token_price, {"from": account}).wait(1)
+        contract.setTokenPrice(token, token_price, {"from": account}).wait(1)
 
 
 def main():
