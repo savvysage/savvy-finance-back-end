@@ -66,7 +66,15 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
-    function tokenExists(address _token) public returns (bool) {
+    function getTokens() public view returns (address[] memory) {
+        return tokens;
+    }
+
+    function getStakers() public view returns (address[] memory) {
+        return stakers;
+    }
+
+    function tokenExists(address _token) public view returns (bool) {
         for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
             if (tokens[tokenIndex] == _token) return true;
         }
