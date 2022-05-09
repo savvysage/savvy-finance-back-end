@@ -2,9 +2,12 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract SavvyFinanceFarm is Ownable {
+contract SavvyFinanceFarm is Ownable, AccessControl {
+    bytes32 public constant TOKEN_ADMIN_ROLE = keccak256("TOKEN_ADMIN_ROLE");
+
     address[] public tokens;
     mapping(address => bool) public tokenIsActive;
     enum TokenType {
@@ -12,11 +15,12 @@ contract SavvyFinanceFarm is Ownable {
         LP
     }
     struct TokenDetails {
-        address admin;
-        uint256 price;
-        uint256 balance;
-        uint256 interestRate;
         TokenType tokenType;
+        address admin;
+        address rewardToken;
+        uint256 rewardBalance;
+        uint256 interestRate;
+        uint256 price;
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
     }
@@ -24,9 +28,9 @@ contract SavvyFinanceFarm is Ownable {
 
     struct TokenRewardDetails {
         uint256 amount;
+        mapping(address => uint256) stakersAmount;
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
-        mapping(address => uint256) stakerAmount;
     }
     mapping(address => TokenRewardDetails[]) public tokensRewardsData;
 
@@ -58,6 +62,10 @@ contract SavvyFinanceFarm is Ownable {
     uint256 minimumInterestRate = 0.1 * (10**18);
     uint256 maximumInterestRate = 5 * (10**18);
 
+    constructor() {
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
     function tokenExists(address _token) public returns (bool) {
         for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
             if (tokens[tokenIndex] == _token) return true;
@@ -68,13 +76,19 @@ contract SavvyFinanceFarm is Ownable {
     function addToken(
         address _token,
         address _admin,
+        address _reward_token,
         TokenType _type
     ) public onlyOwner {
         require(!tokenExists(_token), "Token already exists.");
         tokens.push(_token);
         tokensData[_token].admin = _admin == address(0x0) ? msg.sender : _admin;
+        tokensData[_token].rewardToken = _reward_token == address(0x0)
+            ? _token
+            : _reward_token;
         tokensData[_token].tokenType == _type;
         tokensData[_token].timestampAdded = block.timestamp;
+
+        grantRole(TOKEN_ADMIN_ROLE, tokensData[_token].admin);
     }
 
     function activateToken(address _token) public onlyOwner {
@@ -89,7 +103,19 @@ contract SavvyFinanceFarm is Ownable {
 
     function setTokenAdmin(address _token, address _admin) public onlyOwner {
         require(tokenExists(_token), "Token does not exist.");
+        revokeRole(TOKEN_ADMIN_ROLE, tokensData[_token].admin);
         tokensData[_token].admin = _admin;
+        tokensData[_token].timestampLastUpdated = block.timestamp;
+        grantRole(TOKEN_ADMIN_ROLE, tokensData[_token].admin);
+    }
+
+    function setTokenRewardToken(address _token, address _reward_token)
+        public
+        onlyOwner
+    {
+        require(tokenExists(_token), "Token does not exist.");
+        require(tokenExists(_reward_token), "Reward token does not exist.");
+        tokensData[_token].rewardToken = _reward_token;
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
@@ -101,13 +127,9 @@ contract SavvyFinanceFarm is Ownable {
 
     function setTokenInterestRate(address _token, uint256 _interestRate)
         public
-        onlyOwner
+        onlyRole(TOKEN_ADMIN_ROLE)
     {
         require(tokenExists(_token), "Token does not exist.");
-        require(
-            msg.sender == tokensData[_token].admin,
-            "Only the token admin can do this."
-        );
         require(
             _interestRate >= minimumInterestRate &&
                 _interestRate <= maximumInterestRate,
@@ -125,22 +147,24 @@ contract SavvyFinanceFarm is Ownable {
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
-    function depositToken(address _token, uint256 _amount) public {
+    function depositToken(address _token, uint256 _amount)
+        public
+        onlyRole(TOKEN_ADMIN_ROLE)
+    {
         require(tokenExists(_token), "Token does not exist.");
-        require(
-            msg.sender == tokensData[_token].admin,
-            "Only the token admin can do this."
-        );
         require(_amount > 0, "Amount must be greater than zero.");
         require(
             IERC20(_token).balanceOf(msg.sender) >= _amount,
             "Insufficient token balance."
         );
         IERC20(_token).transferFrom(msg.sender, address(this), _amount);
-        tokensData[_token].balance += _amount;
+        tokensData[_token].rewardBalance += _amount;
     }
 
-    function withdrawToken(address _token, uint256 _amount) public {
+    function withdrawToken(address _token, uint256 _amount)
+        public
+        onlyRole(TOKEN_ADMIN_ROLE)
+    {
         require(tokenExists(_token), "Token does not exist.");
         require(
             msg.sender == tokensData[_token].admin,
@@ -148,11 +172,11 @@ contract SavvyFinanceFarm is Ownable {
         );
         require(_amount > 0, "Amount must be greater than zero.");
         require(
-            tokensData[_token].balance >= _amount,
+            tokensData[_token].rewardBalance >= _amount,
             "Amount is greater than token balance."
         );
         IERC20(_token).transfer(msg.sender, _amount);
-        tokensData[_token].balance -= _amount;
+        tokensData[_token].rewardBalance -= _amount;
     }
 
     function stakeToken(address _token, uint256 _amount) public {
@@ -225,12 +249,12 @@ contract SavvyFinanceFarm is Ownable {
                 uint256 stakerRewardAmount = (stakerTokenBalance * tokenPrice) /
                     (100 / tokenInterestRate);
                 tokenRewardAmount += stakerRewardAmount;
-                tokensRewardsData[token][tokenRewardIndex].stakerAmount[
+                tokensRewardsData[token][tokenRewardIndex].stakersAmount[
                         staker
                     ] = stakerRewardAmount;
                 stakingRewardsData[token][staker].balance += stakerRewardAmount;
             }
-            tokensData[token].balance -= tokenRewardAmount;
+            tokensData[token].rewardBalance -= tokenRewardAmount;
             tokensRewardsData[token][tokenRewardIndex]
                 .amount = tokenRewardAmount;
             tokensRewardsData[token][tokenRewardIndex].timestampAdded = block
