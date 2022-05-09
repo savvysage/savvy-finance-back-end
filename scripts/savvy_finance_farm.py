@@ -1,4 +1,4 @@
-from brownie import SavvyFinance, SavvyFinanceStaking, network, config, web3
+from brownie import SavvyFinance, SavvyFinanceFarm, network, config, web3
 from scripts.common import (
     get_account,
     get_address,
@@ -18,7 +18,7 @@ def deploy_savvy_finance(account=get_account()):
 
 
 def deploy_savvy_finance_staking(account=get_account()):
-    return SavvyFinanceStaking.deploy(
+    return SavvyFinanceFarm.deploy(
         {"from": account},
         publish_source=config["networks"][network.show_active()].get("verify", False),
     )
@@ -61,7 +61,7 @@ def main():
     print(get_lp_token_price(contract2))
     """
     savvy_finance = SavvyFinance[-1]
-    savvy_finance_staking = SavvyFinanceStaking[-1]
+    savvy_finance_staking = SavvyFinanceFarm[-1]
 
     # savvy_finance = deploy_savvy_finance()
     # savvy_finance_staking = deploy_savvy_finance_staking()

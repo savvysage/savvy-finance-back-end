@@ -4,7 +4,7 @@ from scripts.common import (
     get_account,
     get_contract_address,
 )
-from scripts.savvy_finance_staking import (
+from scripts.savvy_finance_farm import (
     deploy_savvy_finance,
     deploy_savvy_finance_staking,
     get_tokens,

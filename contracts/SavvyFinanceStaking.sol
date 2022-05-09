@@ -4,14 +4,19 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract SavvyFinanceStaking is Ownable {
+contract SavvyFinanceFarm is Ownable {
     address[] public tokens;
     mapping(address => bool) public tokenIsActive;
+    enum TokenType {
+        DEFAULT,
+        LP
+    }
     struct TokenDetails {
         address admin;
         uint256 price;
         uint256 balance;
         uint256 interestRate;
+        TokenType tokenType;
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
     }
@@ -19,9 +24,9 @@ contract SavvyFinanceStaking is Ownable {
 
     struct TokenRewardDetails {
         uint256 amount;
-        mapping(address => uint256) stakerAmount;
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
+        mapping(address => uint256) stakerAmount;
     }
     mapping(address => TokenRewardDetails[]) public tokensRewardsData;
 
@@ -50,6 +55,9 @@ contract SavvyFinanceStaking is Ownable {
     mapping(address => mapping(address => StakingRewardDetails))
         public stakingRewardsData;
 
+    uint256 minimumInterestRate = 0.1 * (10**18);
+    uint256 maximumInterestRate = 5 * (10**18);
+
     function tokenExists(address _token) public returns (bool) {
         for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
             if (tokens[tokenIndex] == _token) return true;
@@ -57,10 +65,15 @@ contract SavvyFinanceStaking is Ownable {
         return false;
     }
 
-    function addToken(address _token, address _admin) public onlyOwner {
+    function addToken(
+        address _token,
+        address _admin,
+        TokenType _type
+    ) public onlyOwner {
         require(!tokenExists(_token), "Token already exists.");
         tokens.push(_token);
         tokensData[_token].admin = _admin == address(0x0) ? msg.sender : _admin;
+        tokensData[_token].tokenType == _type;
         tokensData[_token].timestampAdded = block.timestamp;
     }
 
@@ -96,8 +109,17 @@ contract SavvyFinanceStaking is Ownable {
             "Only the token admin can do this."
         );
         require(
-            _interestRate > 0 && _interestRate < 5 * 10**18,
-            "Interest rate must be greater than zero and less than 5."
+            _interestRate >= minimumInterestRate &&
+                _interestRate <= maximumInterestRate,
+            string(
+                abi.encodePacked(
+                    "Interest rate must be between",
+                    minimumInterestRate,
+                    "and",
+                    maximumInterestRate,
+                    "."
+                )
+            )
         );
         tokensData[_token].interestRate = _interestRate;
         tokensData[_token].timestampLastUpdated = block.timestamp;
