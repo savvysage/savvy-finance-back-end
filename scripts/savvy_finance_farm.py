@@ -32,6 +32,15 @@ def get_tokens():
     }
 
 
+def get_tokens_data(contract, tokens, account=get_account()):
+    # tokens = contract.getTokens()
+    token_data = {}
+    for token_name in tokens:
+        token = tokens[token_name]
+        token_data[token_name] = contract.tokensData(token, {"from": account})
+    return token_data
+
+
 def add_tokens(contract, tokens, account=get_account()):
     for token_name in tokens:
         token = tokens[token_name]
@@ -55,30 +64,14 @@ def add_tokens(contract, tokens, account=get_account()):
 #         contract.deactivateToken(token, {"from": account}).wait(1)
 
 
-# def set_token_price(contract, tokens, account=get_account()):
-#     for token_name in tokens:
-#         token = tokens[token_name]
-#         token_price = web3.toWei(
-#             get_token_price(get_contract_address(token_name, "bsc-main")), "ether"
-#         )
-#         contract.setTokenPrice(token, token_price, {"from": account}).wait(1)
-
-
-def update_tokens_prices(contract, tokens, account=get_account()):
+def set_tokens_prices(contract, tokens, account=get_account()):
     # tokens = contract.getTokens()
     for token_name in tokens:
         token = tokens[token_name]
         token_price = web3.toWei(
             get_token_price(get_contract_address(token_name, "bsc-main")), "ether"
         )
-        contract.setTokenPrice(token, token_price, {"from": get_account()}).wait(1)
-
-    # for token_name in tokens:
-    #     token = tokens[token_name]
-    #     token_price = web3.toWei(
-    #         get_token_price(get_contract_address(token_name, "bsc-main")), "ether"
-    #     )
-    #     contract.setTokenPrice(token, token_price, {"from": account}).wait(1)
+        contract.setTokenPrice(token, token_price, {"from": account}).wait(1)
 
 
 def main():
@@ -103,8 +96,10 @@ def main():
     # ).wait(1)
     # print(savvy_finance_farm.tokensData(tokens["wbnb_token"]))
 
-    update_tokens_prices(savvy_finance_farm, tokens)
-    get_tokens_data(savvy_finance_farm)
+    set_tokens_prices(savvy_finance_farm, tokens)
+    print(get_tokens_data(savvy_finance_farm, tokens))
+    print(get_token_price(get_contract_address("link_token", "bsc-main")))
+
     # set_token_price(savvy_finance_farm, {"wbnb_token": tokens["wbnb_token"]})
     # token_price = savvy_finance_farm.tokensData(tokens["wbnb_token"])[1]
     # print(token_price)

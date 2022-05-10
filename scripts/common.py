@@ -4,7 +4,7 @@ from brownie import (
     MockOracle,
     MockV3Aggregator,
     VRFCoordinatorV2Mock,
-    Contract,
+    # Contract,
     network,
     accounts,
     config,
@@ -13,11 +13,10 @@ from brownie import (
 )
 import requests
 
-NON_FORKED_LOCAL_BLOCKCHAIN_ENVIRONMENTS = ["hardhat", "development", "ganache"]
+NON_FORKED_LOCAL_BLOCKCHAIN_ENVIRONMENTS = ["development", "ganache", "hardhat"]
 FORKED_LOCAL_BLOCKCHAIN_ENVIRONMENTS = [
     "mainnet-fork",
-    "binance-fork",
-    "matic-fork",
+    "bsc-main-fork",
 ]
 LOCAL_BLOCKCHAIN_ENVIRONMENTS = (
     NON_FORKED_LOCAL_BLOCKCHAIN_ENVIRONMENTS + FORKED_LOCAL_BLOCKCHAIN_ENVIRONMENTS
@@ -51,7 +50,7 @@ def get_token_price(token_address, token_network=network.show_active()):
     return float(response.json()["data"]["price"])
 
 
-def get_lp_token_price(lp_token_address):
+def get_lp_token_price(lp_token_address, lp_token_network=network.show_active()):
     lp_token_contract = interface.IPancakePair(lp_token_address)
     lp_token_supply = float(web3.fromWei(lp_token_contract.totalSupply(), "ether"))
     lp_token_pair_0_address = lp_token_contract.token0()
@@ -122,13 +121,12 @@ def get_contract(contract_name):
     return contract
 
 
-def deploy_contract_mocks():
+def deploy_contract_mocks(account=get_account()):
     """
     Use this script if you want to deploy contract mocks to a testnet.
     """
     print(f"Current active network is {network.show_active()}.")
     print("Deploying Contract Mocks...")
-    account = get_account()
     # print("Deploying Mock Token...")
     # token = MockToken.deploy({"from": account})
     print("Deploying Mock LINK Token...")
