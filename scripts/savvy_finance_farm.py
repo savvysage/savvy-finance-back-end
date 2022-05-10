@@ -44,11 +44,17 @@ def get_tokens_data(contract, tokens, account=get_account()):
 def add_tokens(contract, tokens, account=get_account()):
     for token_name in tokens:
         token = tokens[token_name]
-        token_admin = get_address("zero")
-        token_reward_token = get_address("zero")
         token_type = 0
+        token_staking_apr = 0
+        token_reward_token = get_address("zero")
+        token_admin = get_address("zero")
         contract.addToken(
-            token, token_admin, token_reward_token, token_type, {"from": account}
+            token,
+            token_type,
+            token_staking_apr,
+            token_reward_token,
+            token_admin,
+            {"from": account},
         ).wait(1)
 
 
