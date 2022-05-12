@@ -174,7 +174,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         require(tokenExists(_reward_token), "Reward token does not exist.");
         require(
             tokensData[_token].admin == tokensData[_reward_token].admin,
-            "Token admin and reward token admin are different."
+            "Token admin should be same as reward token admin."
         );
         tokensData[_token].rewardToken = _reward_token;
         tokensData[_token].timestampLastUpdated = block.timestamp;
@@ -253,55 +253,28 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     function setStakingRewardToken(address _token, address _reward_token)
         public
     {
-        require(
-            stakerIsActive[msg.sender],
-            "You do not have this token staked."
-        );
-        require(tokenIsActive[_token], "Token not active.");
-        require(tokenIsActive[_reward_token], "Reward token not active.");
-        stakingData[_token][msg.sender].rewardToken = _reward_token;
+        setStakerRewardToken(msg.sender, _token, _reward_token, true);
     }
 
-    function rewardStakers() public onlyOwner {
-        for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
-            address token = tokens[tokenIndex];
-            if (!tokenIsActive[token]) continue;
-            uint256 tokenPrice = tokensData[token].price;
-            uint256 tokenStakingApr = tokensData[token].stakingApr;
-            uint256 tokenInterestRateDaily = tokenStakingApr / (365 * (10**18));
-            uint256 tokenRewardIndex = tokensRewardsData[token].length;
-            address tokenRewardToken = tokensData[token].rewardToken;
-            uint256 tokenRewardTokenAmount;
-            for (
-                uint256 stakerIndex = 0;
-                stakerIndex < stakers.length;
-                stakerIndex++
-            ) {
-                address staker = stakers[stakerIndex];
-                if (!stakerIsActive[staker]) continue;
-                uint256 stakerTokenBalance = stakingData[token][staker].balance;
-                if (stakerTokenBalance <= 0) continue;
-                uint256 stakerRewardValue = (stakerTokenBalance * tokenPrice) /
-                    (100 / tokenInterestRateDaily);
-                address stakerRewardToken = stakingData[token][staker]
-                    .rewardToken;
-                uint256 stakerRewardAmount = stakerRewardValue /
-                    tokensData[stakerRewardToken].price;
-                tokenRewardTokenAmount += stakerRewardAmount;
-                tokensRewardsData[token][tokenRewardIndex].stakersAmount[
-                        staker
-                    ] = stakerRewardAmount;
-                stakingRewardsData[token][staker].balance += stakerRewardAmount;
-            }
-            tokensData[tokenRewardToken].balance -= tokenRewardTokenAmount;
-            tokensRewardsData[token][tokenRewardIndex]
-                .amount = tokenRewardTokenAmount;
-            tokensRewardsData[token][tokenRewardIndex].timestampAdded = block
-                .timestamp;
+    function setStakerRewardToken(
+        address _staker,
+        address _token,
+        address _reward_token,
+        bool validate
+    ) internal onlyOwner returns (address) {
+        if (validate) {
+            require(
+                stakerIsActive[msg.sender],
+                "You do not have this token staked."
+            );
+            require(tokenIsActive[_token], "Token not active.");
+            require(tokenIsActive[_reward_token], "Reward token not active.");
         }
+        stakingData[_token][_staker].rewardToken = _reward_token;
+        return stakingData[_token][_staker].rewardToken;
     }
 
-    function withdrawReward(address _token, uint256 _amount) public {
+    function withdrawStakingReward(address _token, uint256 _amount) public {
         require(_amount > 0, "Amount must be greater than zero.");
         require(
             stakingRewardsData[_token][msg.sender].balance >= _amount,
@@ -309,6 +282,90 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         );
         stakingRewardsData[_token][msg.sender].balance -= _amount;
         IERC20(_token).transfer(msg.sender, _amount);
+    }
+
+    function rewardStakers() public onlyOwner {
+        for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
+            address token = tokens[tokenIndex];
+            if (!tokenIsActive[token]) continue;
+
+            uint256 tokenPrice = tokensData[token].price;
+            uint256 tokenStakingApr = tokensData[token].stakingApr;
+            uint256 tokenInterestRateDaily = tokenStakingApr / (365 * (10**18));
+            address tokenRewardToken = tokensData[token].rewardToken;
+            uint256 tokenRewardIndex = tokensRewardsData[token].length;
+            uint256 tokenRewardTokenAmount;
+
+            for (
+                uint256 stakerIndex = 0;
+                stakerIndex < stakers.length;
+                stakerIndex++
+            ) {
+                address staker = stakers[stakerIndex];
+                if (!stakerIsActive[staker]) continue;
+
+                uint256 stakerBalance = stakingData[token][staker].balance;
+                if (stakerBalance <= 0) continue;
+                uint256 stakerRewardValue = (stakerBalance * tokenPrice) /
+                    (100 / tokenInterestRateDaily);
+
+                address stakerRewardToken = stakingData[token][staker]
+                    .rewardToken;
+                if (!tokenIsActive[stakerRewardToken]) continue;
+                // if (!tokenIsActive[stakerRewardToken]) {
+                //     if (stakerRewardToken == tokenRewardToken) continue;
+                //     stakerRewardToken = setStakerRewardToken(
+                //         staker,
+                //         token,
+                //         tokenRewardToken,
+                //         false
+                //     );
+                //     if (!tokenIsActive[stakerRewardToken]) continue;
+                // }
+
+                uint256 stakerRewardTokenBalance = tokensData[stakerRewardToken]
+                    .balance;
+                uint256 stakerRewardTokenPrice = tokensData[stakerRewardToken]
+                    .price;
+                uint256 stakerRewardTokenValue = stakerRewardTokenBalance *
+                    stakerRewardTokenPrice;
+
+                if (stakerRewardTokenValue < stakerRewardValue) {
+                    deactivateToken(stakerRewardToken);
+                    continue;
+                    // if (stakerRewardToken == tokenRewardToken) {
+                    //     deactivateToken(stakerRewardToken);
+                    //     continue;
+                    // }
+                    // stakerRewardToken = setStakerRewardToken(
+                    //     staker,
+                    //     token,
+                    //     tokenRewardToken,
+                    //     false
+                    // );
+                    // if (stakerRewardTokenValue < stakerRewardValue) {
+                    //     deactivateToken(stakerRewardToken);
+                    //     continue;
+                    // }
+                }
+
+                uint256 stakerRewardTokenAmount = stakerRewardValue /
+                    stakerRewardTokenPrice;
+                tokenRewardTokenAmount += stakerRewardTokenAmount;
+
+                // tokensRewardsData[token][tokenRewardIndex].stakersAmount[
+                //         staker
+                //     ] = stakerRewardTokenAmount;
+                // stakingRewardsData[token][staker]
+                //     .balance += stakerRewardTokenAmount;
+            }
+
+            tokensData[tokenRewardToken].balance -= tokenRewardTokenAmount;
+            // tokensRewardsData[token][tokenRewardIndex]
+            //     .amount = tokenRewardTokenAmount;
+            // tokensRewardsData[token][tokenRewardIndex].timestampAdded = block
+            //     .timestamp;
+        }
     }
 
     function transferToken(
