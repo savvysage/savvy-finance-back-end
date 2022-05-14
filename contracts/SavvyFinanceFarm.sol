@@ -241,6 +241,10 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             stakingData[_token][msg.sender].rewardToken = _token;
         }
         stakingData[_token][msg.sender].balance += _amount;
+        stakingData[_token][msg.sender].timestampAdded == 0
+            ? stakingData[_token][msg.sender].timestampAdded = block.timestamp
+            : stakingData[_token][msg.sender].timestampLastUpdated = block
+            .timestamp;
     }
 
     function unstakeToken(address _token, uint256 _amount) public {
@@ -258,6 +262,10 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             stakersData[msg.sender].timestampLastUpdated = block.timestamp;
         }
         stakingData[_token][msg.sender].balance -= _amount;
+        stakingData[_token][msg.sender].timestampAdded == 0
+            ? stakingData[_token][msg.sender].timestampAdded = block.timestamp
+            : stakingData[_token][msg.sender].timestampLastUpdated = block
+            .timestamp;
         IERC20(_token).transfer(msg.sender, _amount);
     }
 
