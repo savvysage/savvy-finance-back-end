@@ -237,7 +237,10 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
                 stakerIsActive[msg.sender] = true;
             }
             stakersData[msg.sender].uniqueTokensStaked++;
-            stakersData[msg.sender].timestampLastUpdated = block.timestamp;
+            stakersData[msg.sender].timestampAdded == 0
+                ? stakersData[msg.sender].timestampAdded = block.timestamp
+                : stakersData[msg.sender].timestampLastUpdated = block
+                .timestamp;
             stakingData[_token][msg.sender].rewardToken = _token;
         }
         stakingData[_token][msg.sender].balance += _amount;
@@ -259,7 +262,10 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
                 stakerIsActive[msg.sender] = false;
             }
             stakersData[msg.sender].uniqueTokensStaked--;
-            stakersData[msg.sender].timestampLastUpdated = block.timestamp;
+            stakersData[msg.sender].timestampAdded == 0
+                ? stakersData[msg.sender].timestampAdded = block.timestamp
+                : stakersData[msg.sender].timestampLastUpdated = block
+                .timestamp;
         }
         stakingData[_token][msg.sender].balance -= _amount;
         stakingData[_token][msg.sender].timestampAdded == 0
