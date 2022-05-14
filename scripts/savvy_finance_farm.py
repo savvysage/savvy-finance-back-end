@@ -81,19 +81,19 @@ def set_tokens_prices(contract, tokens, account=get_account()):
 
 
 def main():
-    savvy_finance = SavvyFinance[-1]
-    savvy_finance_farm = SavvyFinanceFarm[-1]
+    # savvy_finance = SavvyFinance[-1]
+    # savvy_finance_farm = SavvyFinanceFarm[-1]
 
-    # savvy_finance = deploy_savvy_finance()
-    # savvy_finance_farm = deploy_savvy_finance_farm()
+    savvy_finance = deploy_savvy_finance()
+    savvy_finance_farm = deploy_savvy_finance_farm()
 
     tokens = get_tokens()
     tokens["svf_token"] = savvy_finance.address
-    # add_tokens(savvy_finance_farm, tokens)
+    add_tokens(savvy_finance_farm, tokens)
 
-    # savvy_finance_farm.activateToken(
-    #     tokens["wbnb_token"], {"from": get_account()}
-    # ).wait(1)
+    savvy_finance_farm.activateToken(
+        tokens["wbnb_token"], {"from": get_account()}
+    ).wait(1)
     # wbnb_token_price = web3.toWei(
     #     get_token_price(get_contract_address("wbnb_token", "bsc-main")), "ether"
     # )
@@ -102,9 +102,12 @@ def main():
     # ).wait(1)
     # print(savvy_finance_farm.tokensData(tokens["wbnb_token"]))
 
-    set_tokens_prices(savvy_finance_farm, tokens)
-    print(get_tokens_data(savvy_finance_farm, tokens))
-    print(get_token_price(get_contract_address("link_token", "bsc-main")))
+    # set_tokens_prices(savvy_finance_farm, tokens)
+    # print(get_tokens_data(savvy_finance_farm, tokens))
+    # print(get_token_price(get_contract_address("link_token", "bsc-main")))
+
+    savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
+    print(savvy_finance_farm.getTestData())
 
     # set_token_price(savvy_finance_farm, {"wbnb_token": tokens["wbnb_token"]})
     # token_price = savvy_finance_farm.tokensData(tokens["wbnb_token"])[1]
