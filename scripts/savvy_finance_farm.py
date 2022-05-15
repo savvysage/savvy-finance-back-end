@@ -115,12 +115,16 @@ def add_tokens(contract, tokens, account=get_account()):
         token = tokens[token_name]
         token_type = 0
         token_staking_apr = 0
+        token_stake_fee = 0
+        token_unstake_fee = 0
         token_reward_token = get_address("zero")
         token_admin = get_address("zero")
         contract.addToken(
             token,
             token_type,
             token_staking_apr,
+            token_stake_fee,
+            token_unstake_fee,
             token_reward_token,
             token_admin,
             {"from": account},
@@ -201,10 +205,9 @@ def main():
     activate_tokens(savvy_finance_farm, {"svf_token": tokens["svf_token"]})
     stake_token(savvy_finance_farm, savvy_finance, 1000)
     unstake_token(savvy_finance_farm, savvy_finance, 500)
-    stake_token(savvy_finance_farm, savvy_finance, 250)
+    stake_token(savvy_finance_farm, savvy_finance, 500)
 
     savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
-    # print(savvy_finance_farm.getTestData())
 
     print_json(get_tokens_data(savvy_finance_farm, {"svf_token": tokens["svf_token"]}))
     print_json(get_stakers_data(savvy_finance_farm))
@@ -213,3 +216,5 @@ def main():
     print_json(
         get_staking_rewards_data(savvy_finance_farm, {"svf_token": tokens["svf_token"]})
     )
+    print(web3.fromWei(savvy_finance.balanceOf(savvy_finance_farm.address), "ether"))
+    print(web3.fromWei(savvy_finance.balanceOf(get_account().address), "ether"))
