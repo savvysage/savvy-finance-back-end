@@ -38,9 +38,13 @@ def get_tokens_data(contract, tokens, account=get_account()):
     tokens_data = {}
     for token_name in tokens:
         token = tokens[token_name]
+        token_data = list(contract.tokensData(token, {"from": account}))
+        token_data[1] = float(web3.fromWei(token_data[1], "ether"))
+        token_data[2] = float(web3.fromWei(token_data[2], "ether"))
+        token_data[3] = float(web3.fromWei(token_data[3], "ether"))
         token_is_active = contract.tokenIsActive(token)
-        token_data = contract.tokensData(token, {"from": account})
-        tokens_data[token_name] = (token_is_active,) + token_data
+        token_data.insert(0, token_is_active)
+        tokens_data[token_name] = token_data
     return tokens_data
 
 
@@ -48,9 +52,10 @@ def get_stakers_data(contract, account=get_account()):
     stakers = contract.getStakers()
     stakers_data = {}
     for staker in stakers:
+        staker_data = list(contract.stakersData(staker, {"from": account}))
         staker_is_active = contract.stakerIsActive(staker)
-        staker_data = contract.stakersData(staker, {"from": account})
-        stakers_data[staker] = (staker_is_active,) + staker_data
+        staker_data.insert(0, staker_is_active)
+        stakers_data[staker] = staker_data
     return stakers_data
 
 
@@ -58,9 +63,14 @@ def get_stakers_rewards_data(contract, account=get_account()):
     stakers = contract.getStakers()
     stakers_rewards_data = {}
     for staker in stakers:
-        stakers_rewards_data[staker] = contract.getStakerRewardsData(
-            staker, {"from": account}
+        staker_rewards_data = list(
+            contract.getStakerRewardsData(staker, {"from": account})
         )
+        for index, staker_reward_data in enumerate(staker_rewards_data):
+            staker_reward_data = list(staker_reward_data)
+            staker_reward_data[3] = float(web3.fromWei(staker_reward_data[3], "ether"))
+            staker_rewards_data[index] = staker_reward_data
+        stakers_rewards_data[staker] = staker_rewards_data
     return stakers_rewards_data
 
 
@@ -72,9 +82,11 @@ def get_staking_data(contract, tokens, account=get_account()):
         token = tokens[token_name]
         token_staking_data = {}
         for staker in stakers:
-            token_staking_data[staker] = contract.stakingData(
-                token, staker, {"from": account}
+            token_staker_data = list(
+                contract.stakingData(token, staker, {"from": account})
             )
+            token_staker_data[0] = float(web3.fromWei(token_staker_data[0], "ether"))
+            token_staking_data[staker] = token_staker_data
         staking_data[token_name] = token_staking_data
     return staking_data
 
@@ -85,12 +97,16 @@ def get_staking_rewards_data(contract, tokens, account=get_account()):
     staking_rewards_data = {}
     for token_name in tokens:
         token = tokens[token_name]
-        token_staking_data = {}
+        token_staking_rewards_data = {}
         for staker in stakers:
-            token_staking_data[staker] = contract.stakingRewardsData(
-                token, staker, {"from": account}
+            token_staker_rewards_data = list(
+                contract.stakingRewardsData(token, staker, {"from": account})
             )
-        staking_rewards_data[token_name] = token_staking_data
+            token_staker_rewards_data[0] = float(
+                web3.fromWei(token_staker_rewards_data[0], "ether")
+            )
+            token_staking_rewards_data[staker] = token_staker_rewards_data
+        staking_rewards_data[token_name] = token_staking_rewards_data
     return staking_rewards_data
 
 
@@ -185,8 +201,9 @@ def main():
     activate_tokens(savvy_finance_farm, {"svf_token": tokens["svf_token"]})
     stake_token(savvy_finance_farm, savvy_finance, 1000)
     unstake_token(savvy_finance_farm, savvy_finance, 500)
+    stake_token(savvy_finance_farm, savvy_finance, 250)
 
-    # savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
+    savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
     # print(savvy_finance_farm.getTestData())
 
     print_json(get_tokens_data(savvy_finance_farm, {"svf_token": tokens["svf_token"]}))

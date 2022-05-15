@@ -77,14 +77,6 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         return testData;
     }
 
-    function setAprDetails(
-        uint256 _minimumStakingApr,
-        uint256 _maximumStakingApr
-    ) public onlyOwner {
-        minimumStakingApr = _minimumStakingApr;
-        maximumStakingApr = _maximumStakingApr;
-    }
-
     function getTokens() public view returns (address[] memory) {
         return tokens;
     }
@@ -99,6 +91,14 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         returns (StakerRewardDetails[] memory)
     {
         return stakersRewardsData[_staker];
+    }
+
+    function setAprDetails(
+        uint256 _minimumStakingApr,
+        uint256 _maximumStakingApr
+    ) public onlyOwner {
+        minimumStakingApr = _minimumStakingApr;
+        maximumStakingApr = _maximumStakingApr;
     }
 
     function tokenExists(address _token) public view returns (bool) {
@@ -411,19 +411,22 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
                     stakerRewardTokenAmount == 0
                 ) continue;
 
-                testData.push(
-                    string(
-                        abi.encodePacked(
-                            tokenIndex,
-                            ":",
-                            stakerIndex,
-                            "_____",
-                            stakerRewardToken,
-                            ":",
-                            stakerRewardTokenAmount
-                        )
-                    )
-                );
+                // address stakerRewardToken = tokens[0];
+                // uint256 stakerRewardTokenAmount = 20 * (10**18);
+
+                // testData.push(
+                //     string(
+                //         abi.encodePacked(
+                //             tokenIndex,
+                //             ":",
+                //             stakerIndex,
+                //             "_____",
+                //             stakerRewardToken,
+                //             ":",
+                //             stakerRewardTokenAmount
+                //         )
+                //     )
+                // );
 
                 stakerRewardData.id = stakersRewardsData[staker].length;
                 stakerRewardData.token = token;
