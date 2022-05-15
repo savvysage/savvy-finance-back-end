@@ -71,6 +71,18 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     mapping(address => mapping(address => StakingRewardDetails))
         public stakingRewardsData;
 
+    event Stake(address indexed staker, address indexed token, uint256 amount);
+    event Unstake(
+        address indexed staker,
+        address indexed token,
+        uint256 amount
+    );
+    event WithdrawStakingReward(
+        address indexed staker,
+        address indexed token,
+        uint256 amount
+    );
+
     constructor() {
         developmentWallet = msg.sender;
         minimumStakingApr = 50 * (10**18);
@@ -339,6 +351,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             ? stakingData[_token][msg.sender].timestampAdded = block.timestamp
             : stakingData[_token][msg.sender].timestampLastUpdated = block
             .timestamp;
+        emit Stake(msg.sender, _token, stakeAmount);
     }
 
     function unstakeToken(address _token, uint256 _amount) public {
@@ -372,6 +385,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             IERC20(_token).transfer(developmentWallet, unstakeFee);
         uint256 unstakeAmount = _amount - unstakeFee;
         IERC20(_token).transfer(msg.sender, unstakeAmount);
+        emit Unstake(msg.sender, _token, unstakeAmount);
     }
 
     function setStakingRewardToken(address _token, address _reward_token)
@@ -406,6 +420,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         );
         stakingRewardsData[_token][msg.sender].balance -= _amount;
         IERC20(_token).transfer(msg.sender, _amount);
+        emit WithdrawStakingReward(msg.sender, _token, _amount);
     }
 
     function rewardStaker(address _staker, address _token)
