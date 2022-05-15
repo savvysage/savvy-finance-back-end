@@ -1,5 +1,6 @@
 from brownie import SavvyFinance, SavvyFinanceFarm, network, config, web3
 from scripts.common import (
+    print_json,
     get_account,
     get_address,
     get_token_price,
@@ -7,7 +8,14 @@ from scripts.common import (
     get_contract_address,
     get_contract,
 )
-import json
+
+
+def get_tokens():
+    return {
+        "wbnb_token": get_contract("wbnb_token").address,
+        "busd_token": get_contract("busd_token").address,
+        "link_token": get_contract("link_token").address,
+    }
 
 
 def deploy_savvy_finance(account=get_account()):
@@ -25,20 +33,14 @@ def deploy_savvy_finance_farm(account=get_account()):
     )
 
 
-def get_tokens():
-    return {
-        "wbnb_token": get_contract("wbnb_token").address,
-        "busd_token": get_contract("busd_token").address,
-        "link_token": get_contract("link_token").address,
-    }
-
-
 def get_tokens_data(contract, tokens, account=get_account()):
     # tokens = contract.getTokens()
     tokens_data = {}
     for token_name in tokens:
         token = tokens[token_name]
-        tokens_data[token_name] = contract.tokensData(token, {"from": account})
+        token_is_active = contract.tokenIsActive(token)
+        token_data = contract.tokensData(token, {"from": account})
+        tokens_data[token_name] = (token_is_active,) + token_data
     return tokens_data
 
 
@@ -46,8 +48,20 @@ def get_stakers_data(contract, account=get_account()):
     stakers = contract.getStakers()
     stakers_data = {}
     for staker in stakers:
-        stakers_data[staker] = contract.stakersData(staker, {"from": account})
+        staker_is_active = contract.stakerIsActive(staker)
+        staker_data = contract.stakersData(staker, {"from": account})
+        stakers_data[staker] = (staker_is_active,) + staker_data
     return stakers_data
+
+
+def get_stakers_rewards_data(contract, account=get_account()):
+    stakers = contract.getStakers()
+    stakers_rewards_data = {}
+    for staker in stakers:
+        stakers_rewards_data[staker] = contract.getStakerRewardsData(
+            staker, {"from": account}
+        )
+    return stakers_rewards_data
 
 
 def get_staking_data(contract, tokens, account=get_account()):
@@ -63,6 +77,21 @@ def get_staking_data(contract, tokens, account=get_account()):
             )
         staking_data[token_name] = token_staking_data
     return staking_data
+
+
+def get_staking_rewards_data(contract, tokens, account=get_account()):
+    # tokens = contract.getTokens()
+    stakers = contract.getStakers()
+    staking_rewards_data = {}
+    for token_name in tokens:
+        token = tokens[token_name]
+        token_staking_data = {}
+        for staker in stakers:
+            token_staking_data[staker] = contract.stakingRewardsData(
+                token, staker, {"from": account}
+            )
+        staking_rewards_data[token_name] = token_staking_data
+    return staking_rewards_data
 
 
 def add_tokens(contract, tokens, account=get_account()):
@@ -148,7 +177,6 @@ def main():
     # add_tokens(savvy_finance_farm, tokens)
     # set_tokens_prices(savvy_finance_farm, tokens)
     # activate_tokens(savvy_finance_farm, tokens)
-    # print(get_tokens_data(savvy_finance_farm, tokens))
 
     add_tokens(savvy_finance_farm, {"svf_token": tokens["svf_token"]})
     set_tokens_prices(savvy_finance_farm, {"svf_token": tokens["svf_token"]})
@@ -158,21 +186,13 @@ def main():
     stake_token(savvy_finance_farm, savvy_finance, 1000)
     unstake_token(savvy_finance_farm, savvy_finance, 500)
 
-    print(
-        json.dumps(
-            get_tokens_data(savvy_finance_farm, {"svf_token": tokens["svf_token"]}),
-            sort_keys=False,
-            indent=4,
-        )
-    )
-    print(json.dumps(get_stakers_data(savvy_finance_farm), sort_keys=False, indent=4))
-    print(
-        json.dumps(
-            get_staking_data(savvy_finance_farm, {"svf_token": tokens["svf_token"]}),
-            sort_keys=False,
-            indent=4,
-        )
-    )
-
     # savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
     # print(savvy_finance_farm.getTestData())
+
+    print_json(get_tokens_data(savvy_finance_farm, {"svf_token": tokens["svf_token"]}))
+    print_json(get_stakers_data(savvy_finance_farm))
+    print_json(get_stakers_rewards_data(savvy_finance_farm))
+    print_json(get_staking_data(savvy_finance_farm, {"svf_token": tokens["svf_token"]}))
+    print_json(
+        get_staking_rewards_data(savvy_finance_farm, {"svf_token": tokens["svf_token"]})
+    )

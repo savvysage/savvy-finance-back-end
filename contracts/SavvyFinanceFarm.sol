@@ -49,7 +49,6 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         uint256 timestampLastUpdated;
     }
     mapping(address => StakerRewardDetails[]) public stakersRewardsData;
-    mapping(address => uint256) public stakersRewardstimestampLastDistributed;
 
     struct StakingDetails {
         uint256 balance;
@@ -92,6 +91,14 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
 
     function getStakers() public view returns (address[] memory) {
         return stakers;
+    }
+
+    function getStakerRewardsData(address _staker)
+        public
+        view
+        returns (StakerRewardDetails[] memory)
+    {
+        return stakersRewardsData[_staker];
     }
 
     function tokenExists(address _token) public view returns (bool) {

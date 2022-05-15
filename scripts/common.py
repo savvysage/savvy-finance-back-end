@@ -11,7 +11,7 @@ from brownie import (
     web3,
     interface,
 )
-import requests
+import json, requests
 
 NON_FORKED_LOCAL_BLOCKCHAIN_ENVIRONMENTS = ["development", "ganache", "hardhat"]
 FORKED_LOCAL_BLOCKCHAIN_ENVIRONMENTS = [
@@ -29,6 +29,10 @@ contract_name_to_mock = {
     "eth_usd_price_feed": MockV3Aggregator,
     "vrf_coordinator": VRFCoordinatorV2Mock,
 }
+
+
+def print_json(json_data):
+    print(json.dumps(json_data, sort_keys=False, indent=4))
 
 
 def get_account(index=0, id=None):
