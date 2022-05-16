@@ -9,7 +9,6 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     string[] public testData;
 
     address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
-    bytes32 public constant TOKEN_ADMIN_ROLE = keccak256("TOKEN_ADMIN_ROLE");
     address developmentWallet;
     uint256 public minimumStakingApr;
     uint256 public maximumStakingApr;
@@ -26,9 +25,9 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         TokenType tokenType;
         uint256 balance;
         uint256 price;
-        uint256 stakingApr;
         uint256 stakeFee;
         uint256 unstakeFee;
+        uint256 stakingApr;
         address rewardToken;
         address admin;
         uint256 timestampAdded;
@@ -84,17 +83,20 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     );
 
     constructor() {
-        developmentWallet = msg.sender;
+        developmentWallet = _msgSender();
         minimumStakingApr = 50 * (10**18);
         maximumStakingApr = 1000 * (10**18);
         minimumStakingFee = 0;
         maximumStakingFee = 100 * (10**18);
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        grantRole(TOKEN_ADMIN_ROLE, msg.sender);
+        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
     }
 
     function getTestData() public view returns (string[] memory) {
         return testData;
+    }
+
+    function toRole(address a) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(a));
     }
 
     function getTokens() public view returns (address[] memory) {
@@ -143,31 +145,31 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     function addToken(
         address _token,
         TokenType _tokenType,
-        uint256 _stakingApr,
         uint256 _stakeFee,
         uint256 _unstakeFee,
+        uint256 _stakingApr,
         address _reward_token,
         address _admin
     ) public onlyOwner {
         require(!tokenExists(_token), "Token already exists.");
+        _setupRole(toRole(_token), _msgSender());
         tokens.push(_token);
         tokensData[_token].tokenType == _tokenType;
         tokensData[_token].timestampAdded = block.timestamp;
-        setTokenStakingApr(
-            _token,
-            _stakingApr == 0 ? 365 * (10**18) : _stakingApr
-        );
         setTokenStakingFees(
             _token,
             _stakeFee == 0 ? 10**18 : _stakeFee,
             _unstakeFee == 0 ? 10**18 : _unstakeFee
         );
+        setTokenStakingApr(
+            _token,
+            _stakingApr == 0 ? 365 * (10**18) : _stakingApr
+        );
         setTokenRewardToken(
             _token,
             _reward_token == address(0x0) ? _token : _reward_token
         );
-        setTokenAdmin(_token, _admin == address(0x0) ? msg.sender : _admin);
-        grantRole(TOKEN_ADMIN_ROLE, tokensData[_token].admin);
+        setTokenAdmin(_token, _admin == address(0x0) ? _msgSender() : _admin);
     }
 
     function activateToken(address _token) public onlyOwner {
@@ -188,32 +190,11 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
 
     function setTokenAdmin(address _token, address _admin) public onlyOwner {
         require(tokenExists(_token), "Token does not exist.");
-        revokeRole(TOKEN_ADMIN_ROLE, tokensData[_token].admin);
+        if (tokensData[_token].admin != owner())
+            revokeRole(toRole(_token), tokensData[_token].admin);
         tokensData[_token].admin = _admin;
         tokensData[_token].timestampLastUpdated = block.timestamp;
-        grantRole(TOKEN_ADMIN_ROLE, tokensData[_token].admin);
-    }
-
-    function setTokenStakingApr(address _token, uint256 _stakingApr)
-        public
-        onlyRole(TOKEN_ADMIN_ROLE)
-    {
-        require(tokenExists(_token), "Token does not exist.");
-        require(
-            _stakingApr >= minimumStakingApr &&
-                _stakingApr <= maximumStakingApr,
-            string(
-                abi.encodePacked(
-                    "Staking APR must be between",
-                    minimumStakingApr / (10**18),
-                    "and",
-                    maximumStakingApr / (10**18),
-                    "."
-                )
-            )
-        );
-        tokensData[_token].stakingApr = _stakingApr;
-        tokensData[_token].timestampLastUpdated = block.timestamp;
+        grantRole(toRole(_token), tokensData[_token].admin);
     }
 
     function setTokenStakingFees(
@@ -268,57 +249,72 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
+    function setTokenStakingApr(address _token, uint256 _stakingApr)
+        public
+        onlyRole(toRole(_token))
+    {
+        require(tokenExists(_token), "Token does not exist.");
+        require(
+            _stakingApr >= minimumStakingApr &&
+                _stakingApr <= maximumStakingApr,
+            string(
+                abi.encodePacked(
+                    "Staking APR must be between",
+                    minimumStakingApr / (10**18),
+                    "and",
+                    maximumStakingApr / (10**18),
+                    "."
+                )
+            )
+        );
+        tokensData[_token].stakingApr = _stakingApr;
+        tokensData[_token].timestampLastUpdated = block.timestamp;
+    }
+
     function setTokenRewardToken(address _token, address _reward_token)
         public
-        onlyRole(TOKEN_ADMIN_ROLE)
+        onlyRole(toRole(_token))
+        onlyRole(toRole(_reward_token))
     {
         require(tokenExists(_token), "Token does not exist.");
         require(tokenExists(_reward_token), "Reward token does not exist.");
-        require(
-            tokensData[_token].admin == tokensData[_reward_token].admin,
-            "Token admin should be same as reward token admin."
-        );
         tokensData[_token].rewardToken = _reward_token;
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
     function depositToken(address _token, uint256 _amount)
         public
-        onlyRole(TOKEN_ADMIN_ROLE)
+        onlyRole(toRole(_token))
     {
         require(tokenExists(_token), "Token does not exist.");
         require(_amount > 0, "Amount must be greater than zero.");
         require(
-            IERC20(_token).balanceOf(msg.sender) >= _amount,
+            IERC20(_token).balanceOf(_msgSender()) >= _amount,
             "Insufficient token balance."
         );
-        IERC20(_token).transferFrom(msg.sender, address(this), _amount);
+        IERC20(_token).transferFrom(_msgSender(), address(this), _amount);
         tokensData[_token].balance += _amount;
     }
 
     function withdrawToken(address _token, uint256 _amount)
         public
-        onlyRole(TOKEN_ADMIN_ROLE)
+        onlyRole(toRole(_token))
     {
         require(tokenExists(_token), "Token does not exist.");
-        require(
-            msg.sender == tokensData[_token].admin,
-            "Only the token admin can do this."
-        );
         require(_amount > 0, "Amount must be greater than zero.");
         require(
             tokensData[_token].balance >= _amount,
             "Amount is greater than token balance."
         );
-        IERC20(_token).transfer(msg.sender, _amount);
         tokensData[_token].balance -= _amount;
+        IERC20(_token).transfer(_msgSender(), _amount);
     }
 
     function stakeToken(address _token, uint256 _amount) public {
         require(tokenIsActive[_token], "Token not active.");
         require(_amount > 0, "Amount must be greater than zero.");
         require(
-            IERC20(_token).balanceOf(msg.sender) >= _amount,
+            IERC20(_token).balanceOf(_msgSender()) >= _amount,
             "Insufficient token balance."
         );
 
@@ -326,57 +322,57 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             tokensData[_token].stakeFee;
         if (stakeFee != 0)
             IERC20(_token).transferFrom(
-                msg.sender,
+                _msgSender(),
                 developmentWallet,
                 stakeFee
             );
         uint256 stakeAmount = _amount - stakeFee;
-        IERC20(_token).transferFrom(msg.sender, address(this), stakeAmount);
+        IERC20(_token).transferFrom(_msgSender(), address(this), stakeAmount);
 
-        if (stakingData[_token][msg.sender].balance == 0) {
-            if (stakersData[msg.sender].uniqueTokensStaked == 0) {
-                stakers.push(msg.sender);
-                stakerIsActive[msg.sender] = true;
+        if (stakingData[_token][_msgSender()].balance == 0) {
+            if (stakersData[_msgSender()].uniqueTokensStaked == 0) {
+                stakers.push(_msgSender());
+                stakerIsActive[_msgSender()] = true;
             }
-            stakersData[msg.sender].uniqueTokensStaked++;
-            stakersData[msg.sender].timestampAdded == 0
-                ? stakersData[msg.sender].timestampAdded = block.timestamp
-                : stakersData[msg.sender].timestampLastUpdated = block
+            stakersData[_msgSender()].uniqueTokensStaked++;
+            stakersData[_msgSender()].timestampAdded == 0
+                ? stakersData[_msgSender()].timestampAdded = block.timestamp
+                : stakersData[_msgSender()].timestampLastUpdated = block
                 .timestamp;
-            stakingData[_token][msg.sender].rewardToken = _token;
+            stakingData[_token][_msgSender()].rewardToken = _token;
         }
 
-        stakingData[_token][msg.sender].balance += stakeAmount;
-        stakingData[_token][msg.sender].timestampAdded == 0
-            ? stakingData[_token][msg.sender].timestampAdded = block.timestamp
-            : stakingData[_token][msg.sender].timestampLastUpdated = block
+        stakingData[_token][_msgSender()].balance += stakeAmount;
+        stakingData[_token][_msgSender()].timestampAdded == 0
+            ? stakingData[_token][_msgSender()].timestampAdded = block.timestamp
+            : stakingData[_token][_msgSender()].timestampLastUpdated = block
             .timestamp;
-        emit Stake(msg.sender, _token, stakeAmount);
+        emit Stake(_msgSender(), _token, stakeAmount);
     }
 
     function unstakeToken(address _token, uint256 _amount) public {
         // require(tokenIsActive[_token], "Token not active.");
         require(_amount > 0, "Amount must be greater than zero.");
         require(
-            stakingData[_token][msg.sender].balance >= _amount,
+            stakingData[_token][_msgSender()].balance >= _amount,
             "Amount is greater than token staking balance."
         );
 
-        if (stakingData[_token][msg.sender].balance == _amount) {
-            if (stakersData[msg.sender].uniqueTokensStaked == 1) {
-                stakerIsActive[msg.sender] = false;
+        if (stakingData[_token][_msgSender()].balance == _amount) {
+            if (stakersData[_msgSender()].uniqueTokensStaked == 1) {
+                stakerIsActive[_msgSender()] = false;
             }
-            stakersData[msg.sender].uniqueTokensStaked--;
-            stakersData[msg.sender].timestampAdded == 0
-                ? stakersData[msg.sender].timestampAdded = block.timestamp
-                : stakersData[msg.sender].timestampLastUpdated = block
+            stakersData[_msgSender()].uniqueTokensStaked--;
+            stakersData[_msgSender()].timestampAdded == 0
+                ? stakersData[_msgSender()].timestampAdded = block.timestamp
+                : stakersData[_msgSender()].timestampLastUpdated = block
                 .timestamp;
         }
 
-        stakingData[_token][msg.sender].balance -= _amount;
-        stakingData[_token][msg.sender].timestampAdded == 0
-            ? stakingData[_token][msg.sender].timestampAdded = block.timestamp
-            : stakingData[_token][msg.sender].timestampLastUpdated = block
+        stakingData[_token][_msgSender()].balance -= _amount;
+        stakingData[_token][_msgSender()].timestampAdded == 0
+            ? stakingData[_token][_msgSender()].timestampAdded = block.timestamp
+            : stakingData[_token][_msgSender()].timestampLastUpdated = block
             .timestamp;
 
         uint256 unstakeFee = (_amount / (100 * (10**18))) *
@@ -384,14 +380,14 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         if (unstakeFee != 0)
             IERC20(_token).transfer(developmentWallet, unstakeFee);
         uint256 unstakeAmount = _amount - unstakeFee;
-        IERC20(_token).transfer(msg.sender, unstakeAmount);
-        emit Unstake(msg.sender, _token, unstakeAmount);
+        IERC20(_token).transfer(_msgSender(), unstakeAmount);
+        emit Unstake(_msgSender(), _token, unstakeAmount);
     }
 
     function setStakingRewardToken(address _token, address _reward_token)
         public
     {
-        setStakerRewardToken(msg.sender, _token, _reward_token, true);
+        setStakerRewardToken(_msgSender(), _token, _reward_token, true);
     }
 
     function setStakerRewardToken(
@@ -402,8 +398,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     ) internal onlyOwner returns (address) {
         if (validate) {
             require(
-                stakerIsActive[msg.sender],
-                "You do not have this token staked."
+                stakerIsActive[_msgSender()],
+                "Staker does not have this token staked."
             );
             require(tokenIsActive[_token], "Token not active.");
             require(tokenIsActive[_reward_token], "Reward token not active.");
@@ -415,12 +411,12 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     function withdrawStakingReward(address _token, uint256 _amount) public {
         require(_amount > 0, "Amount must be greater than zero.");
         require(
-            stakingRewardsData[_token][msg.sender].balance >= _amount,
+            stakingRewardsData[_token][_msgSender()].balance >= _amount,
             "Amount is greater than token reward balance."
         );
-        stakingRewardsData[_token][msg.sender].balance -= _amount;
-        IERC20(_token).transfer(msg.sender, _amount);
-        emit WithdrawStakingReward(msg.sender, _token, _amount);
+        stakingRewardsData[_token][_msgSender()].balance -= _amount;
+        IERC20(_token).transfer(_msgSender(), _amount);
+        emit WithdrawStakingReward(_msgSender(), _token, _amount);
     }
 
     function rewardStaker(address _staker, address _token)

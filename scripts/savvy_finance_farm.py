@@ -42,6 +42,8 @@ def get_tokens_data(contract, tokens, account=get_account()):
         token_data[1] = float(web3.fromWei(token_data[1], "ether"))
         token_data[2] = float(web3.fromWei(token_data[2], "ether"))
         token_data[3] = float(web3.fromWei(token_data[3], "ether"))
+        token_data[4] = float(web3.fromWei(token_data[4], "ether"))
+        token_data[5] = float(web3.fromWei(token_data[5], "ether"))
         token_is_active = contract.tokenIsActive(token)
         token_data.insert(0, token_is_active)
         tokens_data[token_name] = token_data
@@ -114,17 +116,17 @@ def add_tokens(contract, tokens, account=get_account()):
     for token_name in tokens:
         token = tokens[token_name]
         token_type = 0
-        token_staking_apr = 0
         token_stake_fee = 0
         token_unstake_fee = 0
+        token_staking_apr = 0
         token_reward_token = get_address("zero")
         token_admin = get_address("zero")
         contract.addToken(
             token,
             token_type,
-            token_staking_apr,
             token_stake_fee,
             token_unstake_fee,
+            token_staking_apr,
             token_reward_token,
             token_admin,
             {"from": account},

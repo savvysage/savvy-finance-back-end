@@ -5,6 +5,6 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract SavvyFinance is ERC20 {
     constructor(uint256 initialSupply) ERC20("Savvy Finance", "SVF") {
-        _mint(msg.sender, initialSupply);
+        _mint(_msgSender(), initialSupply);
     }
 }
