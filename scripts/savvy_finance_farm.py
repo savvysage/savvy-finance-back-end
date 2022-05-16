@@ -112,6 +112,14 @@ def get_staking_rewards_data(contract, tokens, account=get_account()):
     return staking_rewards_data
 
 
+def exclude_staker_from_fees(contract, staker, account=get_account()):
+    contract.excludeStakerFromFees(staker, {"from": account}).wait(1)
+
+
+def include_staker_in_fees(contract, staker, account=get_account()):
+    contract.includeStakerInFees(staker, {"from": account}).wait(1)
+
+
 def add_tokens(contract, tokens, account=get_account()):
     for token_name in tokens:
         token = tokens[token_name]
@@ -205,6 +213,7 @@ def main():
     deposit_token(savvy_finance_farm, savvy_finance, 20000)
     withdraw_token(savvy_finance_farm, savvy_finance, 10000)
     activate_tokens(savvy_finance_farm, {"svf_token": tokens["svf_token"]})
+    exclude_staker_from_fees(savvy_finance_farm, get_account().address)
     stake_token(savvy_finance_farm, savvy_finance, 1000)
     unstake_token(savvy_finance_farm, savvy_finance, 500)
     stake_token(savvy_finance_farm, savvy_finance, 500)

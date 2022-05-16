@@ -6,14 +6,12 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SavvyFinanceFarm is Ownable, AccessControl {
-    string[] public testData;
-
     address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
-    address developmentWallet;
-    uint256 public minimumStakingApr;
-    uint256 public maximumStakingApr;
+    address public developmentWallet;
     uint256 public minimumStakingFee;
     uint256 public maximumStakingFee;
+    uint256 public minimumStakingApr;
+    uint256 public maximumStakingApr;
 
     address[] public tokens;
     mapping(address => bool) public tokenIsActive;
@@ -23,6 +21,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     }
     struct TokenDetails {
         TokenType tokenType;
+        // string name;
+        // string symbol;
         uint256 balance;
         uint256 price;
         uint256 stakeFee;
@@ -37,6 +37,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
 
     address[] public stakers;
     mapping(address => bool) public stakerIsActive;
+    mapping(address => bool) public stakerIsExcludedFromFees;
     struct StakerDetails {
         uint256 uniqueTokensStaked;
         uint256 timestampAdded;
@@ -60,6 +61,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
     }
+    // token => staker => StakingDetails
     mapping(address => mapping(address => StakingDetails)) public stakingData;
 
     struct StakingRewardDetails {
@@ -67,6 +69,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
     }
+    // reward_token => staker => StakingRewardDetails
     mapping(address => mapping(address => StakingRewardDetails))
         public stakingRewardsData;
 
@@ -78,25 +81,39 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     );
     event WithdrawStakingReward(
         address indexed staker,
-        address indexed token,
+        address indexed reward_token,
         uint256 amount
     );
 
     constructor() {
         developmentWallet = _msgSender();
+        minimumStakingFee = 0;
+        maximumStakingFee = 10 * (10**18);
         minimumStakingApr = 50 * (10**18);
         maximumStakingApr = 1000 * (10**18);
-        minimumStakingFee = 0;
-        maximumStakingFee = 100 * (10**18);
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-    }
-
-    function getTestData() public view returns (string[] memory) {
-        return testData;
     }
 
     function toRole(address a) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(a));
+    }
+
+    function tokenExists(address _token) public view returns (bool) {
+        for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
+            if (tokens[tokenIndex] == _token) return true;
+        }
+        return false;
+    }
+
+    function stakerExists(address _staker) public view returns (bool) {
+        for (
+            uint256 stakerIndex = 0;
+            stakerIndex < stakers.length;
+            stakerIndex++
+        ) {
+            if (stakers[stakerIndex] == _staker) return true;
+        }
+        return false;
     }
 
     function getTokens() public view returns (address[] memory) {
@@ -119,15 +136,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         developmentWallet = _developmentWallet;
     }
 
-    function setAprDetails(
-        uint256 _minimumStakingApr,
-        uint256 _maximumStakingApr
-    ) public onlyOwner {
-        minimumStakingApr = _minimumStakingApr;
-        maximumStakingApr = _maximumStakingApr;
-    }
-
-    function setFeeDetails(
+    function setStakingFeeDetails(
         uint256 _minimumStakingFee,
         uint256 _maximumStakingFee
     ) public onlyOwner {
@@ -135,11 +144,20 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         maximumStakingFee = _maximumStakingFee;
     }
 
-    function tokenExists(address _token) public view returns (bool) {
-        for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
-            if (tokens[tokenIndex] == _token) return true;
-        }
-        return false;
+    function setStakingAprDetails(
+        uint256 _minimumStakingApr,
+        uint256 _maximumStakingApr
+    ) public onlyOwner {
+        minimumStakingApr = _minimumStakingApr;
+        maximumStakingApr = _maximumStakingApr;
+    }
+
+    function excludeStakerFromFees(address _staker) public onlyOwner {
+        stakerIsExcludedFromFees[_staker] = true;
+    }
+
+    function includeStakerInFees(address _staker) public onlyOwner {
+        stakerIsExcludedFromFees[_staker] = false;
     }
 
     function addToken(
@@ -320,18 +338,22 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
 
         uint256 stakeFee = (_amount / (100 * (10**18))) *
             tokensData[_token].stakeFee;
-        if (stakeFee != 0)
+        uint256 stakeAmount;
+        if (stakeFee == 0 || stakerIsExcludedFromFees[_msgSender()]) {
+            stakeAmount = _amount;
+        } else {
             IERC20(_token).transferFrom(
                 _msgSender(),
                 developmentWallet,
                 stakeFee
             );
-        uint256 stakeAmount = _amount - stakeFee;
+            stakeAmount = _amount - stakeFee;
+        }
         IERC20(_token).transferFrom(_msgSender(), address(this), stakeAmount);
 
         if (stakingData[_token][_msgSender()].balance == 0) {
             if (stakersData[_msgSender()].uniqueTokensStaked == 0) {
-                stakers.push(_msgSender());
+                if (!stakerExists(_msgSender())) stakers.push(_msgSender());
                 stakerIsActive[_msgSender()] = true;
             }
             stakersData[_msgSender()].uniqueTokensStaked++;
@@ -377,9 +399,13 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
 
         uint256 unstakeFee = (_amount / (100 * (10**18))) *
             tokensData[_token].unstakeFee;
-        if (unstakeFee != 0)
+        uint256 unstakeAmount;
+        if (unstakeFee == 0 || stakerIsExcludedFromFees[_msgSender()]) {
+            unstakeAmount = _amount;
+        } else {
             IERC20(_token).transfer(developmentWallet, unstakeFee);
-        uint256 unstakeAmount = _amount - unstakeFee;
+            unstakeAmount = _amount - unstakeFee;
+        }
         IERC20(_token).transfer(_msgSender(), unstakeAmount);
         emit Unstake(_msgSender(), _token, unstakeAmount);
     }
@@ -408,15 +434,17 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         return stakingData[_token][_staker].rewardToken;
     }
 
-    function withdrawStakingReward(address _token, uint256 _amount) public {
+    function withdrawStakingReward(address _reward_token, uint256 _amount)
+        public
+    {
         require(_amount > 0, "Amount must be greater than zero.");
         require(
-            stakingRewardsData[_token][_msgSender()].balance >= _amount,
-            "Amount is greater than token reward balance."
+            stakingRewardsData[_reward_token][_msgSender()].balance >= _amount,
+            "Amount is greater than reward token balance."
         );
-        stakingRewardsData[_token][_msgSender()].balance -= _amount;
-        IERC20(_token).transfer(_msgSender(), _amount);
-        emit WithdrawStakingReward(_msgSender(), _token, _amount);
+        stakingRewardsData[_reward_token][_msgSender()].balance -= _amount;
+        IERC20(_reward_token).transfer(_msgSender(), _amount);
+        emit WithdrawStakingReward(_msgSender(), _reward_token, _amount);
     }
 
     function rewardStaker(address _staker, address _token)
