@@ -112,12 +112,12 @@ def get_staking_rewards_data(contract, tokens, account=get_account()):
     return staking_rewards_data
 
 
-def exclude_staker_from_fees(contract, staker, account=get_account()):
-    contract.excludeStakerFromFees(staker, {"from": account}).wait(1)
+def exclude_from_fees(contract, address, account=get_account()):
+    contract.excludeFromFees(address, {"from": account}).wait(1)
 
 
-def include_staker_in_fees(contract, staker, account=get_account()):
-    contract.includeStakerInFees(staker, {"from": account}).wait(1)
+def include_in_fees(contract, address, account=get_account()):
+    contract.includeInFees(address, {"from": account}).wait(1)
 
 
 def add_tokens(contract, tokens, account=get_account()):
@@ -213,12 +213,26 @@ def main():
     deposit_token(savvy_finance_farm, savvy_finance, 20000)
     withdraw_token(savvy_finance_farm, savvy_finance, 10000)
     activate_tokens(savvy_finance_farm, {"svf_token": tokens["svf_token"]})
-    exclude_staker_from_fees(savvy_finance_farm, get_account().address)
+    exclude_from_fees(savvy_finance_farm, get_account().address)
     stake_token(savvy_finance_farm, savvy_finance, 1000)
     unstake_token(savvy_finance_farm, savvy_finance, 500)
     stake_token(savvy_finance_farm, savvy_finance, 500)
 
-    savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
+    # print(
+    #     savvy_finance_farm.calculateStakerRewardValue(
+    #         get_account().address, tokens["svf_token"], {"from": get_account()}
+    #     )
+    # )
+    # print(
+    #     web3.fromWei(
+    #         savvy_finance_farm.calculateStakerRewardValue(
+    #             get_account().address, tokens["svf_token"], {"from": get_account()}
+    #         ),
+    #         "ether",
+    #     )
+    # )
+    # savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
+    # savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
 
     print_json(get_tokens_data(savvy_finance_farm, {"svf_token": tokens["svf_token"]}))
     print_json(get_stakers_data(savvy_finance_farm))

@@ -12,6 +12,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     uint256 public maximumStakingFee;
     uint256 public minimumStakingApr;
     uint256 public maximumStakingApr;
+    mapping(address => bool) public isExcludedFromFees;
 
     address[] public tokens;
     mapping(address => bool) public tokenIsActive;
@@ -37,7 +38,6 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
 
     address[] public stakers;
     mapping(address => bool) public stakerIsActive;
-    mapping(address => bool) public stakerIsExcludedFromFees;
     struct StakerDetails {
         uint256 uniqueTokensStaked;
         uint256 timestampAdded;
@@ -88,14 +88,26 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     constructor() {
         developmentWallet = _msgSender();
         minimumStakingFee = 0;
-        maximumStakingFee = 10 * (10**18);
-        minimumStakingApr = 50 * (10**18);
-        maximumStakingApr = 1000 * (10**18);
+        maximumStakingFee = toWei(10);
+        minimumStakingApr = toWei(50);
+        maximumStakingApr = toWei(1000);
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
     }
 
     function toRole(address a) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(a));
+    }
+
+    function toWei(uint256 _number) public pure returns (uint256) {
+        return _number * (10**18);
+    }
+
+    function fromWei(uint256 _number) public pure returns (uint256) {
+        return _number / (10**18);
+    }
+
+    function secondsToYears(uint256 _seconds) public pure returns (uint256) {
+        return fromWei(_seconds * (0.0000000317098 * (10**18)));
     }
 
     function tokenExists(address _token) public view returns (bool) {
@@ -118,6 +130,10 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
 
     function getTokens() public view returns (address[] memory) {
         return tokens;
+    }
+
+    function getTokenValue(address _token) public view returns (uint256) {
+        return tokensData[_token].balance * tokensData[_token].price;
     }
 
     function getStakers() public view returns (address[] memory) {
@@ -152,12 +168,12 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         maximumStakingApr = _maximumStakingApr;
     }
 
-    function excludeStakerFromFees(address _staker) public onlyOwner {
-        stakerIsExcludedFromFees[_staker] = true;
+    function excludeFromFees(address _address) public onlyOwner {
+        isExcludedFromFees[_address] = true;
     }
 
-    function includeStakerInFees(address _staker) public onlyOwner {
-        stakerIsExcludedFromFees[_staker] = false;
+    function includeInFees(address _address) public onlyOwner {
+        isExcludedFromFees[_address] = false;
     }
 
     function addToken(
@@ -176,13 +192,10 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         tokensData[_token].timestampAdded = block.timestamp;
         setTokenStakingFees(
             _token,
-            _stakeFee == 0 ? 10**18 : _stakeFee,
-            _unstakeFee == 0 ? 10**18 : _unstakeFee
+            _stakeFee == 0 ? toWei(1) : _stakeFee,
+            _unstakeFee == 0 ? toWei(1) : _unstakeFee
         );
-        setTokenStakingApr(
-            _token,
-            _stakingApr == 0 ? 365 * (10**18) : _stakingApr
-        );
+        setTokenStakingApr(_token, _stakingApr == 0 ? toWei(365) : _stakingApr);
         setTokenRewardToken(
             _token,
             _reward_token == address(0x0) ? _token : _reward_token
@@ -234,9 +247,9 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             string(
                 abi.encodePacked(
                     "Stake fee must be between",
-                    minimumStakingFee / (10**18),
+                    fromWei(minimumStakingFee),
                     "and",
-                    maximumStakingFee / (10**18),
+                    fromWei(maximumStakingFee),
                     "."
                 )
             )
@@ -256,9 +269,9 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             string(
                 abi.encodePacked(
                     "Unstake fee must be between",
-                    minimumStakingFee / (10**18),
+                    fromWei(minimumStakingFee),
                     "and",
-                    maximumStakingFee / (10**18),
+                    fromWei(maximumStakingFee),
                     "."
                 )
             )
@@ -278,9 +291,9 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             string(
                 abi.encodePacked(
                     "Staking APR must be between",
-                    minimumStakingApr / (10**18),
+                    fromWei(minimumStakingApr),
                     "and",
-                    maximumStakingApr / (10**18),
+                    fromWei(maximumStakingApr),
                     "."
                 )
             )
@@ -336,10 +349,9 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             "Insufficient token balance."
         );
 
-        uint256 stakeFee = (_amount / (100 * (10**18))) *
-            tokensData[_token].stakeFee;
+        uint256 stakeFee = (_amount / toWei(100)) * tokensData[_token].stakeFee;
         uint256 stakeAmount;
-        if (stakeFee == 0 || stakerIsExcludedFromFees[_msgSender()]) {
+        if (stakeFee == 0 || isExcludedFromFees[_msgSender()]) {
             stakeAmount = _amount;
         } else {
             IERC20(_token).transferFrom(
@@ -362,6 +374,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
                 : stakersData[_msgSender()].timestampLastUpdated = block
                 .timestamp;
             stakingData[_token][_msgSender()].rewardToken = _token;
+        } else {
+            rewardStaker(_msgSender(), _token);
         }
 
         stakingData[_token][_msgSender()].balance += stakeAmount;
@@ -380,15 +394,14 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             "Amount is greater than token staking balance."
         );
 
+        rewardStaker(_msgSender(), _token);
+
         if (stakingData[_token][_msgSender()].balance == _amount) {
             if (stakersData[_msgSender()].uniqueTokensStaked == 1) {
                 stakerIsActive[_msgSender()] = false;
             }
             stakersData[_msgSender()].uniqueTokensStaked--;
-            stakersData[_msgSender()].timestampAdded == 0
-                ? stakersData[_msgSender()].timestampAdded = block.timestamp
-                : stakersData[_msgSender()].timestampLastUpdated = block
-                .timestamp;
+            stakersData[_msgSender()].timestampLastUpdated = block.timestamp;
         }
 
         stakingData[_token][_msgSender()].balance -= _amount;
@@ -397,10 +410,10 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             : stakingData[_token][_msgSender()].timestampLastUpdated = block
             .timestamp;
 
-        uint256 unstakeFee = (_amount / (100 * (10**18))) *
+        uint256 unstakeFee = (_amount / toWei(100)) *
             tokensData[_token].unstakeFee;
         uint256 unstakeAmount;
-        if (unstakeFee == 0 || stakerIsExcludedFromFees[_msgSender()]) {
+        if (unstakeFee == 0 || isExcludedFromFees[_msgSender()]) {
             unstakeAmount = _amount;
         } else {
             IERC20(_token).transfer(developmentWallet, unstakeFee);
@@ -447,84 +460,96 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         emit WithdrawStakingReward(_msgSender(), _reward_token, _amount);
     }
 
-    function rewardStaker(address _staker, address _token)
+    function calculateStakerRewardValue(address _staker, address _token)
         public
-        onlyOwner
-        returns (address, uint256)
+        view
+        returns (uint256)
     {
-        if (!stakerIsActive[_staker]) return (ZERO_ADDRESS, 0);
+        if (!tokenExists(_token)) return 0;
+        TokenDetails memory tokenData = tokensData[_token];
+        if (!stakerExists(_staker)) return 0;
+        StakingDetails memory stakerData = stakingData[_token][_staker];
+        if (stakerData.balance <= 0) return 0;
 
-        TokenDetails memory tokenData;
-        tokenData.price = tokensData[_token].price;
-        tokenData.rewardToken = tokensData[_token].rewardToken;
-        tokenData.stakingApr = tokensData[_token].stakingApr;
-        uint256 tokenInterestRateDaily = tokenData.stakingApr /
-            (365 * (10**18));
+        uint256 stakerValue = fromWei(stakerData.balance * tokenData.price);
+        uint256 rate = tokenData.stakingApr / 100;
+        uint256 timestampStarted = stakerData.timestampLastUpdated != 0
+            ? stakerData.timestampLastUpdated
+            : stakerData.timestampAdded;
+        uint256 timestampEnded = block.timestamp;
+        uint256 timeInSeconds = toWei(timestampEnded - timestampStarted);
+        uint256 timeInYears = secondsToYears(timeInSeconds);
 
-        StakingDetails memory stakerData;
-        stakerData.balance = stakingData[_token][_staker].balance;
-        if (stakerData.balance <= 0) return (ZERO_ADDRESS, 0);
-        uint256 stakerRewardValue = (stakerData.balance * tokenData.price) /
-            (100 / tokenInterestRateDaily);
+        return (stakerValue * rate * timeInYears) / (10**36);
+    }
 
-        stakerData.rewardToken = stakingData[_token][_staker].rewardToken;
-        if (!tokenIsActive[stakerData.rewardToken]) {
-            if (stakerData.rewardToken == tokenData.rewardToken)
-                return (ZERO_ADDRESS, 0);
-            stakerData.rewardToken = setStakerRewardToken(
+    function rewardStaker(address _staker, address _token) public onlyOwner {
+        if (!tokenIsActive[_token]) return;
+        if (!stakerIsActive[_staker]) return;
+
+        TokenDetails memory tokenData = tokensData[_token];
+        StakingDetails memory stakingData1 = stakingData[_token][_staker];
+        if (stakingData1.balance <= 0) return;
+
+        if (!tokenIsActive[stakingData1.rewardToken]) {
+            if (stakingData1.rewardToken == tokenData.rewardToken) return;
+            stakingData1.rewardToken = setStakerRewardToken(
                 _staker,
                 _token,
                 tokenData.rewardToken,
                 false
             );
-            if (!tokenIsActive[stakerData.rewardToken])
-                return (ZERO_ADDRESS, 0);
+            if (!tokenIsActive[stakingData1.rewardToken]) return;
         }
 
-        uint256 stakerRewardTokenBalance = tokensData[stakerData.rewardToken]
-            .balance;
-        uint256 stakerRewardTokenPrice = tokensData[stakerData.rewardToken]
-            .price;
-        uint256 stakerRewardTokenValue = stakerRewardTokenBalance *
-            stakerRewardTokenPrice;
+        uint256 stakerRewardValue = calculateStakerRewardValue(_staker, _token);
+        uint256 stakerRewardTokenValue = getTokenValue(
+            stakingData1.rewardToken
+        );
 
         if (stakerRewardTokenValue < stakerRewardValue) {
-            if (stakerData.rewardToken == tokenData.rewardToken) {
-                deactivateToken(stakerData.rewardToken);
-                return (ZERO_ADDRESS, 0);
+            if (stakingData1.rewardToken == tokenData.rewardToken) {
+                deactivateToken(_token);
+                return;
             }
-            stakerData.rewardToken = setStakerRewardToken(
+            stakingData1.rewardToken = setStakerRewardToken(
                 _staker,
                 _token,
                 tokenData.rewardToken,
                 false
             );
+            stakerRewardTokenValue = getTokenValue(stakingData1.rewardToken);
             if (stakerRewardTokenValue < stakerRewardValue) {
-                deactivateToken(stakerData.rewardToken);
-                return (ZERO_ADDRESS, 0);
+                deactivateToken(_token);
+                return;
             }
         }
 
-        uint256 stakerRewardTokenAmount = stakerRewardValue /
-            stakerRewardTokenPrice;
+        uint256 stakerRewardTokenAmount = toWei(
+            stakerRewardValue / tokensData[stakingData1.rewardToken].price
+        );
+        if (stakerRewardTokenAmount <= 0) return;
 
-        tokensData[stakerData.rewardToken].balance -= stakerRewardTokenAmount;
-        tokensData[stakerData.rewardToken].timestampLastUpdated = block
+        tokensData[stakingData1.rewardToken].balance -= stakerRewardTokenAmount;
+        tokensData[stakingData1.rewardToken].timestampLastUpdated = block
             .timestamp;
-        stakingRewardsData[stakerData.rewardToken][_staker]
+        stakingRewardsData[stakingData1.rewardToken][_staker]
             .balance += stakerRewardTokenAmount;
-        stakingRewardsData[stakerData.rewardToken][_staker]
+        stakingRewardsData[stakingData1.rewardToken][_staker]
             .timestampLastUpdated = block.timestamp;
 
-        return (stakerData.rewardToken, stakerRewardTokenAmount);
+        StakerRewardDetails memory stakerRewardData;
+        stakerRewardData.id = stakersRewardsData[_staker].length;
+        stakerRewardData.token = _token;
+        stakerRewardData.rewardToken = stakingData1.rewardToken;
+        stakerRewardData.rewardAmount = stakerRewardTokenAmount;
+        stakerRewardData.timestampAdded = block.timestamp;
+        stakersRewardsData[_staker].push(stakerRewardData);
     }
 
     function rewardStakers() public onlyOwner {
         for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
             address token = tokens[tokenIndex];
-            if (!tokenIsActive[token]) continue;
-
-            StakerRewardDetails memory stakerRewardData;
 
             for (
                 uint256 stakerIndex = 0;
@@ -533,21 +558,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             ) {
                 address staker = stakers[stakerIndex];
 
-                (
-                    address stakerRewardToken,
-                    uint256 stakerRewardTokenAmount
-                ) = rewardStaker(staker, token);
-                if (
-                    stakerRewardToken == address(0x0) ||
-                    stakerRewardTokenAmount == 0
-                ) continue;
-
-                stakerRewardData.id = stakersRewardsData[staker].length;
-                stakerRewardData.token = token;
-                stakerRewardData.rewardToken = stakerRewardToken;
-                stakerRewardData.rewardAmount = stakerRewardTokenAmount;
-                stakerRewardData.timestampAdded = block.timestamp;
-                stakersRewardsData[staker].push(stakerRewardData);
+                rewardStaker(staker, token);
             }
         }
     }
