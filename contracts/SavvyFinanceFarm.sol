@@ -423,30 +423,6 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         emit Unstake(_msgSender(), _token, unstakeAmount);
     }
 
-    function setStakingRewardToken(address _token, address _reward_token)
-        public
-    {
-        setStakerRewardToken(_msgSender(), _token, _reward_token, true);
-    }
-
-    function setStakerRewardToken(
-        address _staker,
-        address _token,
-        address _reward_token,
-        bool validate
-    ) internal onlyOwner returns (address) {
-        if (validate) {
-            require(
-                stakerIsActive[_msgSender()],
-                "Staker does not have this token staked."
-            );
-            require(tokenIsActive[_token], "Token not active.");
-            require(tokenIsActive[_reward_token], "Reward token not active.");
-        }
-        stakingData[_token][_staker].rewardToken = _reward_token;
-        return stakingData[_token][_staker].rewardToken;
-    }
-
     function withdrawStakingReward(address _reward_token, uint256 _amount)
         public
     {
@@ -460,8 +436,32 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         emit WithdrawStakingReward(_msgSender(), _reward_token, _amount);
     }
 
-    function calculateStakerRewardValue(address _staker, address _token)
+    function setStakingRewardToken(address _token, address _reward_token)
         public
+    {
+        setStakerRewardToken(_msgSender(), _token, _reward_token, true);
+    }
+
+    function setStakerRewardToken(
+        address _staker,
+        address _token,
+        address _reward_token,
+        bool validate
+    ) internal returns (address) {
+        if (validate) {
+            require(
+                stakerIsActive[_msgSender()],
+                "Staker does not have this token staked."
+            );
+            require(tokenIsActive[_token], "Token not active.");
+            require(tokenIsActive[_reward_token], "Reward token not active.");
+        }
+        stakingData[_token][_staker].rewardToken = _reward_token;
+        return stakingData[_token][_staker].rewardToken;
+    }
+
+    function calculateStakerRewardValue(address _staker, address _token)
+        internal
         view
         returns (uint256)
     {
@@ -483,7 +483,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         return (stakerValue * rate * timeInYears) / (10**36);
     }
 
-    function rewardStaker(address _staker, address _token) public onlyOwner {
+    function rewardStaker(address _staker, address _token) internal {
         if (!tokenIsActive[_token]) return;
         if (!stakerIsActive[_staker]) return;
 
