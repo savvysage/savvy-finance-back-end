@@ -94,6 +94,16 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
     }
 
+    function initialize() external {
+        developmentWallet = _msgSender();
+        minimumStakingFee = 0;
+        maximumStakingFee = toWei(10);
+        minimumStakingApr = toWei(50);
+        maximumStakingApr = toWei(1000);
+        _transferOwnership(_msgSender());
+        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+    }
+
     function toRole(address a) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(a));
     }

@@ -32,14 +32,19 @@ def deploy_proxy_admin(account=get_account()):
     return ProxyAdmin.deploy({"from": account})
 
 
-def deploy_transparent_upgradeable_proxy(
-    contract, admin, encoded_initializer_function, account=get_account()
-):
+def deploy_transparent_upgradeable_proxy(contract, proxy_admin, account=get_account()):
+    # If we want an intializer function we can add
+    # `initializer=box.store, 1`
+    # to simulate the initializer being the `store` function
+    # with a `newValue` of 1
+    # box_encoded_initializer_function = encode_function_data()
+    # box_encoded_initializer_function = encode_function_data(initializer=box.store, 1)
+    encoded_initializer_function = encode_function_data(initializer=contract.initialize)
     return TransparentUpgradeableProxy.deploy(
         contract.address,
-        admin.address,
+        proxy_admin.address,
         encoded_initializer_function,
-        {"from": account, "gas_limit": 1000000},
+        {"from": account},
     )
 
 
@@ -224,63 +229,71 @@ def main():
     # proxy_admin = ProxyAdmin[-1]
     # savvy_finance = SavvyFinance[-1]
     # savvy_finance_farm = SavvyFinanceFarm[-1]
+    # proxy = TransparentUpgradeableProxy[-1]
 
     proxy_admin = deploy_proxy_admin()
     savvy_finance = deploy_savvy_finance()
     savvy_finance_farm = deploy_savvy_finance_farm()
+    proxy = deploy_transparent_upgradeable_proxy(savvy_finance_farm, proxy_admin)
 
-    # If we want an intializer function we can add
-    # `initializer=box.store, 1`
-    # to simulate the initializer being the `store` function
-    # with a `newValue` of 1
-    box_encoded_initializer_function = encode_function_data()
-    # box_encoded_initializer_function = encode_function_data(initializer=box.store, 1)
-
-    proxy = deploy_transparent_upgradeable_proxy(
-        savvy_finance_farm, proxy_admin, box_encoded_initializer_function
-    )
     proxy_savvy_finance_farm = Contract.from_abi(
-        "SavvyFinanceFarm", proxy.address, savvy_finance_farm.abi
+        savvy_finance_farm._name, proxy.address, savvy_finance_farm.abi
     )
 
     tokens = get_tokens()
     tokens["svf_token"] = savvy_finance.address
-    # add_tokens(savvy_finance_farm, tokens)
-    # set_tokens_prices(savvy_finance_farm, tokens)
-    # activate_tokens(savvy_finance_farm, tokens)
+    # add_tokens(proxy_savvy_finance_farm, tokens)
+    # set_tokens_prices(proxy_savvy_finance_farm, tokens)
+    # activate_tokens(proxy_savvy_finance_farm, tokens)
+
+    # print(proxy_admin.owner(), get_account().address)
+    # print(proxy_admin.getProxyAdmin(proxy), proxy_admin.address)
+    # print(proxy_admin.getProxyImplementation(proxy), savvy_finance_farm.address)
+    # print(savvy_finance_farm.developmentWallet())
+    # print(proxy_savvy_finance_farm.developmentWallet())
+    # print(savvy_finance_farm.toRole(tokens["svf_token"]))
+    # print(proxy_savvy_finance_farm.toRole(tokens["svf_token"]))
 
     add_tokens(proxy_savvy_finance_farm, {"svf_token": tokens["svf_token"]})
-    # set_tokens_prices(savvy_finance_farm, {"svf_token": tokens["svf_token"]})
-    # deposit_token(savvy_finance_farm, savvy_finance, 20000)
-    # withdraw_token(savvy_finance_farm, savvy_finance, 10000)
-    # activate_tokens(savvy_finance_farm, {"svf_token": tokens["svf_token"]})
-    # exclude_from_fees(savvy_finance_farm, get_account().address)
-    # stake_token(savvy_finance_farm, savvy_finance, 1000)
-    # unstake_token(savvy_finance_farm, savvy_finance, 500)
-    # stake_token(savvy_finance_farm, savvy_finance, 500)
+    set_tokens_prices(proxy_savvy_finance_farm, {"svf_token": tokens["svf_token"]})
+    deposit_token(proxy_savvy_finance_farm, savvy_finance, 20000)
+    withdraw_token(proxy_savvy_finance_farm, savvy_finance, 10000)
+    activate_tokens(proxy_savvy_finance_farm, {"svf_token": tokens["svf_token"]})
+    exclude_from_fees(proxy_savvy_finance_farm, get_account().address)
+    stake_token(proxy_savvy_finance_farm, savvy_finance, 1000)
+    unstake_token(proxy_savvy_finance_farm, savvy_finance, 500)
+    stake_token(proxy_savvy_finance_farm, savvy_finance, 500)
 
     # print(
-    #     savvy_finance_farm.calculateStakerRewardValue(
+    #     proxy_savvy_finance_farm.calculateStakerRewardValue(
     #         get_account().address, tokens["svf_token"], {"from": get_account()}
     #     )
     # )
     # print(
     #     web3.fromWei(
-    #         savvy_finance_farm.calculateStakerRewardValue(
+    #         proxy_savvy_finance_farm.calculateStakerRewardValue(
     #             get_account().address, tokens["svf_token"], {"from": get_account()}
     #         ),
     #         "ether",
     #     )
     # )
-    # savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
-    # savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
+    # proxy_savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
+    # proxy_savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
 
-    # print_json(get_tokens_data(savvy_finance_farm, {"svf_token": tokens["svf_token"]}))
-    # print_json(get_stakers_data(savvy_finance_farm))
-    # print_json(get_stakers_rewards_data(savvy_finance_farm))
-    # print_json(get_staking_data(savvy_finance_farm, {"svf_token": tokens["svf_token"]}))
-    # print_json(
-    #     get_staking_rewards_data(savvy_finance_farm, {"svf_token": tokens["svf_token"]})
-    # )
-    # print(web3.fromWei(savvy_finance.balanceOf(savvy_finance_farm.address), "ether"))
-    # print(web3.fromWei(savvy_finance.balanceOf(get_account().address), "ether"))
+    print_json(
+        get_tokens_data(proxy_savvy_finance_farm, {"svf_token": tokens["svf_token"]})
+    )
+    print_json(get_stakers_data(proxy_savvy_finance_farm))
+    print_json(get_stakers_rewards_data(proxy_savvy_finance_farm))
+    print_json(
+        get_staking_data(proxy_savvy_finance_farm, {"svf_token": tokens["svf_token"]})
+    )
+    print_json(
+        get_staking_rewards_data(
+            proxy_savvy_finance_farm, {"svf_token": tokens["svf_token"]}
+        )
+    )
+    print(
+        web3.fromWei(savvy_finance.balanceOf(proxy_savvy_finance_farm.address), "ether")
+    )
+    print(web3.fromWei(savvy_finance.balanceOf(get_account().address), "ether"))
