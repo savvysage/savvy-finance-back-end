@@ -85,14 +85,14 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         uint256 amount
     );
 
-    constructor() {
-        developmentWallet = _msgSender();
-        minimumStakingFee = 0;
-        maximumStakingFee = toWei(10);
-        minimumStakingApr = toWei(50);
-        maximumStakingApr = toWei(1000);
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-    }
+    // constructor() {
+    //     developmentWallet = _msgSender();
+    //     minimumStakingFee = 0;
+    //     maximumStakingFee = toWei(10);
+    //     minimumStakingApr = toWei(50);
+    //     maximumStakingApr = toWei(1000);
+    //     _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+    // }
 
     function initialize() external {
         developmentWallet = _msgSender();
@@ -100,8 +100,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         maximumStakingFee = toWei(10);
         minimumStakingApr = toWei(50);
         maximumStakingApr = toWei(1000);
-        _transferOwnership(_msgSender());
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _transferOwnership(_msgSender());
     }
 
     function toRole(address a) public pure returns (bytes32) {

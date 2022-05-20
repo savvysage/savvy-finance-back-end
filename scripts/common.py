@@ -159,7 +159,7 @@ def fund_with_link(address, amount=web3.toWei(0.1, "ether"), account=get_account
     return tx
 
 
-def encode_function_data(initializer=None, *args):
+def encode_function_data(*args, initializer=None):
     """Encodes the function call so we can work with an initializer.
     Args:
         initializer ([brownie.network.contract.ContractTx], optional):
