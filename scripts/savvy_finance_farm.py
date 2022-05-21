@@ -19,6 +19,7 @@ from scripts.common import (
     get_contract,
     encode_function_data,
 )
+import os, shutil, yaml, json
 
 
 def get_tokens():
@@ -234,28 +235,45 @@ def unstake_token(contract, token, amount, account=get_account()):
     contract.unstakeToken(token.address, amount, {"from": account}).wait(1)
 
 
-def main():
-    # proxy_admin = ProxyAdmin[-1]
-    # savvy_finance = SavvyFinance[-1]
-    # savvy_finance_proxy = TransparentUpgradeableProxy[-2]
-    # savvy_finance_farm = SavvyFinanceFarm[-1]
-    # savvy_finance_farm_proxy = TransparentUpgradeableProxy[-1]
+def copy_to_front_end(src, dest):
+    if os.path.exists(dest):
+        shutil.rmtree(dest)
+    shutil.copytree(src, dest)
 
-    proxy_admin = deploy_proxy_admin()
+
+def update_front_end():
+    copy_to_front_end("./build", "./front_end/src/chain-info")
+    with open("brownie-config.yaml", "r") as brownie_config:
+        config_dict = yaml.load(brownie_config, Loader=yaml.FullLoader)
+        with open(
+            "./front_end/src/brownie-config.json", "w"
+        ) as frontend_brownie_config:
+            json.dump(config_dict, frontend_brownie_config)
+    print("Front end updated!")
+
+
+def main():
+    proxy_admin = ProxyAdmin[-1]
+    savvy_finance = SavvyFinance[-1]
+    savvy_finance_proxy = TransparentUpgradeableProxy[-2]
+    savvy_finance_farm = SavvyFinanceFarm[-1]
+    savvy_finance_farm_proxy = TransparentUpgradeableProxy[-1]
+
+    # proxy_admin = deploy_proxy_admin()
 
     # savvy_finance = deploy_savvy_finance()
-    savvy_finance = deploy_savvy_finance_upgradeable()
-    savvy_finance_proxy = deploy_transparent_upgradeable_proxy(
-        proxy_admin, savvy_finance, web3.toWei(1000000, "ether")
-    )
+    # savvy_finance = deploy_savvy_finance_upgradeable()
+    # savvy_finance_proxy = deploy_transparent_upgradeable_proxy(
+    #     proxy_admin, savvy_finance, web3.toWei(1000000, "ether")
+    # )
     proxy_savvy_finance = Contract.from_abi(
         savvy_finance._name, savvy_finance_proxy.address, savvy_finance.abi
     )
 
-    savvy_finance_farm = deploy_savvy_finance_farm()
-    savvy_finance_farm_proxy = deploy_transparent_upgradeable_proxy(
-        proxy_admin, savvy_finance_farm
-    )
+    # savvy_finance_farm = deploy_savvy_finance_farm()
+    # savvy_finance_farm_proxy = deploy_transparent_upgradeable_proxy(
+    #     proxy_admin, savvy_finance_farm
+    # )
     proxy_savvy_finance_farm = Contract.from_abi(
         savvy_finance_farm._name,
         savvy_finance_farm_proxy.address,
@@ -279,15 +297,15 @@ def main():
     # print(savvy_finance_farm.toRole(tokens["svf_token"]))
     # print(proxy_savvy_finance_farm.toRole(tokens["svf_token"]))
 
-    add_tokens(proxy_savvy_finance_farm, {"svf_token": tokens["svf_token"]})
-    set_tokens_prices(proxy_savvy_finance_farm, {"svf_token": tokens["svf_token"]})
-    deposit_token(proxy_savvy_finance_farm, proxy_savvy_finance, 20000)
-    withdraw_token(proxy_savvy_finance_farm, proxy_savvy_finance, 10000)
-    activate_tokens(proxy_savvy_finance_farm, {"svf_token": tokens["svf_token"]})
-    exclude_from_fees(proxy_savvy_finance_farm, get_account().address)
-    stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000)
-    unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
-    stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
+    # add_tokens(proxy_savvy_finance_farm, {"svf_token": tokens["svf_token"]})
+    # set_tokens_prices(proxy_savvy_finance_farm, {"svf_token": tokens["svf_token"]})
+    # deposit_token(proxy_savvy_finance_farm, proxy_savvy_finance, 20000)
+    # withdraw_token(proxy_savvy_finance_farm, proxy_savvy_finance, 10000)
+    # activate_tokens(proxy_savvy_finance_farm, {"svf_token": tokens["svf_token"]})
+    # exclude_from_fees(proxy_savvy_finance_farm, get_account().address)
+    # stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000)
+    # unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
+    # stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
 
     # print(
     #     proxy_savvy_finance_farm.calculateStakerRewardValue(
