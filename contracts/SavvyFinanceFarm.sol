@@ -13,17 +13,13 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     uint256 public minimumStakingApr;
     uint256 public maximumStakingApr;
     mapping(address => bool) public isExcludedFromFees;
+    mapping(uint256 => string) public tokenTypeNumberToName;
 
     address[] public tokens;
     mapping(address => bool) public tokenIsActive;
-    enum TokenType {
-        DEFAULT,
-        LP
-    }
     struct TokenDetails {
-        TokenType tokenType;
-        // string name;
-        // string symbol;
+        string name;
+        uint256 _type;
         uint256 balance;
         uint256 price;
         uint256 stakeFee;
@@ -186,9 +182,17 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         isExcludedFromFees[_address] = false;
     }
 
+    function setTokenTypeNumberToName(uint256 _number, string memory _name)
+        public
+        onlyOwner
+    {
+        tokenTypeNumberToName[_number] = _name;
+    }
+
     function addToken(
         address _token,
-        TokenType _tokenType,
+        string memory _name,
+        uint256 _type,
         uint256 _stakeFee,
         uint256 _unstakeFee,
         uint256 _stakingApr,
@@ -198,7 +202,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         require(!tokenExists(_token), "Token already exists.");
         _setupRole(toRole(_token), _msgSender());
         tokens.push(_token);
-        tokensData[_token].tokenType == _tokenType;
+        tokensData[_token].name = _name;
+        tokensData[_token]._type = _type;
         tokensData[_token].timestampAdded = block.timestamp;
         setTokenStakingFees(
             _token,
@@ -221,6 +226,15 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     function deactivateToken(address _token) public onlyOwner {
         require(tokenExists(_token), "Token does not exist.");
         tokenIsActive[_token] = false;
+    }
+
+    function setTokenName(address _token, string memory _name)
+        public
+        onlyOwner
+    {
+        require(tokenExists(_token), "Token does not exist.");
+        tokensData[_token].name = _name;
+        tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
     function setTokenPrice(address _token, uint256 _price) public onlyOwner {
