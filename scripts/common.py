@@ -47,14 +47,14 @@ def get_address(address_name):
     return config["addresses"][address_name]
 
 
-def get_token_price(token_address, token_network=network.show_active()):
+def get_token_price(token_address, network_name=network.show_active()):
     response = requests.get(
         "https://api.pancakeswap.info/api/v2/tokens/{}".format(token_address)
     )
     return float(response.json()["data"]["price"])
 
 
-def get_lp_token_price(lp_token_address, lp_token_network=network.show_active()):
+def get_lp_token_price(lp_token_address, network_name=network.show_active()):
     lp_token_contract = interface.IPancakePair(lp_token_address)
     lp_token_supply = float(web3.fromWei(lp_token_contract.totalSupply(), "ether"))
     lp_token_pair_0_address = lp_token_contract.token0()
@@ -71,12 +71,8 @@ def get_lp_token_price(lp_token_address, lp_token_network=network.show_active())
     return lp_token_price
 
 
-def get_contract_address(
-    contract_address_name, contract_address_network=network.show_active()
-):
-    return config["networks"][contract_address_network]["contracts"][
-        contract_address_name
-    ]
+def get_contract_address(contract_name, network_name=network.show_active()):
+    return config["networks"][network_name]["contracts"][contract_name]
 
 
 def get_contract(contract_name):
