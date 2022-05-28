@@ -21,7 +21,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         string name;
         uint256 _type;
         uint256 price;
-        uint256 balance;
+        uint256 rewardBalance;
+        uint256 stakingBalance;
         uint256 stakeFee;
         uint256 unstakeFee;
         uint256 stakingApr;
@@ -139,7 +140,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     }
 
     function getTokenValue(address _token) public view returns (uint256) {
-        return tokensData[_token].balance * tokensData[_token].price;
+        return tokensData[_token].rewardBalance * tokensData[_token].price;
     }
 
     function getStakers() public view returns (address[] memory) {
@@ -354,7 +355,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             "Insufficient token balance."
         );
         IERC20(_token).transferFrom(_msgSender(), address(this), _amount);
-        tokensData[_token].balance += _amount;
+        tokensData[_token].rewardBalance += _amount;
     }
 
     function withdrawToken(address _token, uint256 _amount)
@@ -364,10 +365,10 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         require(tokenExists(_token), "Token does not exist.");
         require(_amount > 0, "Amount must be greater than zero.");
         require(
-            tokensData[_token].balance >= _amount,
+            tokensData[_token].rewardBalance >= _amount,
             "Amount is greater than token balance."
         );
-        tokensData[_token].balance -= _amount;
+        tokensData[_token].rewardBalance -= _amount;
         IERC20(_token).transfer(_msgSender(), _amount);
     }
 
@@ -413,6 +414,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             ? stakingData[_token][_msgSender()].timestampAdded = block.timestamp
             : stakingData[_token][_msgSender()].timestampLastUpdated = block
             .timestamp;
+        tokensData[_token].stakingBalance += stakeAmount;
+        tokensData[_token].timestampLastUpdated = block.timestamp;
         emit Stake(_msgSender(), _token, stakeAmount);
     }
 
@@ -439,6 +442,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             ? stakingData[_token][_msgSender()].timestampAdded = block.timestamp
             : stakingData[_token][_msgSender()].timestampLastUpdated = block
             .timestamp;
+        tokensData[_token].stakingBalance -= _amount;
+        tokensData[_token].timestampLastUpdated = block.timestamp;
 
         uint256 unstakeFee = (_amount / toWei(100)) *
             tokensData[_token].unstakeFee;
@@ -563,7 +568,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         );
         if (stakerRewardTokenAmount <= 0) return;
 
-        tokensData[stakingData1.rewardToken].balance -= stakerRewardTokenAmount;
+        tokensData[stakingData1.rewardToken]
+            .rewardBalance -= stakerRewardTokenAmount;
         tokensData[stakingData1.rewardToken].timestampLastUpdated = block
             .timestamp;
         stakingRewardsData[stakingData1.rewardToken][_staker]
