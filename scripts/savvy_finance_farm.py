@@ -346,14 +346,14 @@ def main():
     # proxy_savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
     #####
 
-    # print_json(get_tokens_data(proxy_savvy_finance_farm, tokens))
-    # print_json(get_stakers_data(proxy_savvy_finance_farm))
-    # print_json(get_stakers_rewards_data(proxy_savvy_finance_farm))
-    # print_json(get_staking_data(proxy_savvy_finance_farm, tokens))
-    # print_json(get_staking_rewards_data(proxy_savvy_finance_farm, tokens))
-    # print(
-    #     web3.fromWei(
-    #         proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address), "ether"
-    #     )
-    # )
-    # print(web3.fromWei(proxy_savvy_finance.balanceOf(get_account().address), "ether"))
+    print_json(get_tokens_data(proxy_savvy_finance_farm, tokens))
+    print_json(get_stakers_data(proxy_savvy_finance_farm))
+    print_json(get_stakers_rewards_data(proxy_savvy_finance_farm))
+    print_json(get_staking_data(proxy_savvy_finance_farm, tokens))
+    print_json(get_staking_rewards_data(proxy_savvy_finance_farm, tokens))
+    print(
+        web3.fromWei(
+            proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address), "ether"
+        )
+    )
+    print(web3.fromWei(proxy_savvy_finance.balanceOf(get_account().address), "ether"))

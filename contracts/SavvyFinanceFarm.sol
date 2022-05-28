@@ -20,8 +20,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         bool isActive;
         string name;
         uint256 _type;
-        uint256 balance;
         uint256 price;
+        uint256 balance;
         uint256 stakeFee;
         uint256 unstakeFee;
         uint256 stakingApr;
@@ -234,6 +234,12 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     {
         require(tokenExists(_token), "Token does not exist.");
         tokensData[_token].name = _name;
+        tokensData[_token].timestampLastUpdated = block.timestamp;
+    }
+
+    function setTokenType(address _token, uint256 _type) public onlyOwner {
+        require(tokenExists(_token), "Token does not exist.");
+        tokensData[_token]._type = _type;
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
