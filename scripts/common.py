@@ -59,11 +59,19 @@ def get_lp_token_price(lp_token_address, network_name=network.show_active()):
     lp_token_supply = float(web3.fromWei(lp_token_contract.totalSupply(), "ether"))
     lp_token_pair_0_address = lp_token_contract.token0()
     lp_token_pair_1_address = lp_token_contract.token1()
+    lp_token_pair_0_name = interface.IERC20(lp_token_pair_0_address).symbol().lower()
+    lp_token_pair_1_name = interface.IERC20(lp_token_pair_1_address).symbol().lower()
     lp_token_pair_reserves = lp_token_contract.getReserves()
     lp_token_pair_0_reserve = float(web3.fromWei(lp_token_pair_reserves[0], "ether"))
     lp_token_pair_1_reserve = float(web3.fromWei(lp_token_pair_reserves[1], "ether"))
-    lp_token_pair_0_price = get_token_price(lp_token_pair_0_address)
-    lp_token_pair_1_price = get_token_price(lp_token_pair_1_address)
+    # lp_token_pair_0_price = get_token_price(lp_token_pair_0_address, network_name)
+    # lp_token_pair_1_price = get_token_price(lp_token_pair_1_address, network_name)
+    lp_token_pair_0_price = get_token_price(
+        get_contract_address(lp_token_pair_0_name + "_token", network_name)
+    )
+    lp_token_pair_1_price = get_token_price(
+        get_contract_address(lp_token_pair_1_name + "_token", network_name)
+    )
     lp_token_pair_0_value = lp_token_pair_0_reserve * lp_token_pair_0_price
     lp_token_pair_1_value = lp_token_pair_1_reserve * lp_token_pair_1_price
     lp_token_value = lp_token_pair_0_value + lp_token_pair_1_value

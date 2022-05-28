@@ -47,6 +47,7 @@ networks:
       wbnb_token: '0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd'
       busd_token: '0x78867BbEeF44f2326bF8DDd1941a4439382EF2A7'
       link_token: '0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06'
+      wbnb_busd_lp_token: '0xe0e92035077c39594793e61802a350347c320cf2'
       vrf_coordinator: '0xa555fC018435bef5A13C6c6870a9d4C11DEC329C'
       bnb_usd_price_feed: '0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526'
   mainnet-fork:

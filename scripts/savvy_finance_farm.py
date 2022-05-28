@@ -27,6 +27,7 @@ def get_tokens():
         "wbnb": get_contract("wbnb_token").address,
         "busd": get_contract("busd_token").address,
         "link": get_contract("link_token").address,
+        "wbnb_busd": get_contract("wbnb_busd_lp_token").address,
     }
 
 
@@ -79,13 +80,11 @@ def get_tokens_data(contract, tokens, account=get_account()):
     for token_name in tokens:
         token = tokens[token_name]
         token_data = list(contract.tokensData(token, {"from": account}))
-        token_data[2] = float(web3.fromWei(token_data[2], "ether"))
         token_data[3] = float(web3.fromWei(token_data[3], "ether"))
         token_data[4] = float(web3.fromWei(token_data[4], "ether"))
         token_data[5] = float(web3.fromWei(token_data[5], "ether"))
         token_data[6] = float(web3.fromWei(token_data[6], "ether"))
-        token_is_active = contract.tokenIsActive(token)
-        token_data.insert(0, token_is_active)
+        token_data[7] = float(web3.fromWei(token_data[7], "ether"))
         tokens_data[token_name] = token_data
     return tokens_data
 
@@ -95,8 +94,6 @@ def get_stakers_data(contract, account=get_account()):
     stakers_data = {}
     for staker in stakers:
         staker_data = list(contract.stakersData(staker, {"from": account}))
-        staker_is_active = contract.stakerIsActive(staker)
-        staker_data.insert(0, staker_is_active)
         stakers_data[staker] = staker_data
     return stakers_data
 
@@ -168,8 +165,8 @@ def set_token_types(contract, types, account=get_account()):
 def add_tokens(contract, tokens, account=get_account()):
     for token_name in tokens:
         token = tokens[token_name]
-        token_name_2 = token_name.upper()
-        token_type = 0
+        token_name_2 = token_name.replace("_", "-").upper()
+        token_type = 0 if ("_" not in token_name) else 1
         token_stake_fee = 0
         token_unstake_fee = 0
         token_staking_apr = 0
@@ -208,7 +205,11 @@ def set_tokens_prices(contract, tokens, account=get_account()):
     for token_name in tokens:
         token = tokens[token_name]
         token_price = web3.toWei(
-            get_token_price(get_contract_address(token_name + "_token", "bsc-main")),
+            get_token_price(get_contract_address(token_name + "_token", "bsc-main"))
+            if ("_" not in token_name)
+            else get_lp_token_price(
+                get_contract_address(token_name + "_lp_token"), "bsc-main"
+            ),
             "ether",
         )
         contract.setTokenPrice(token, token_price, {"from": account}).wait(1)
@@ -345,17 +346,11 @@ def main():
     # proxy_savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
     #####
 
-    #####
-    print_json(get_tokens_data(proxy_savvy_finance_farm, tokens))
-    #####
-
-    # print_json(get_tokens_data(proxy_savvy_finance_farm, {"svf": tokens["svf"]}))
+    # print_json(get_tokens_data(proxy_savvy_finance_farm, tokens))
     # print_json(get_stakers_data(proxy_savvy_finance_farm))
     # print_json(get_stakers_rewards_data(proxy_savvy_finance_farm))
-    # print_json(get_staking_data(proxy_savvy_finance_farm, {"svf": tokens["svf"]}))
-    # print_json(
-    #     get_staking_rewards_data(proxy_savvy_finance_farm, {"svf": tokens["svf"]})
-    # )
+    # print_json(get_staking_data(proxy_savvy_finance_farm, tokens))
+    # print_json(get_staking_rewards_data(proxy_savvy_finance_farm, tokens))
     # print(
     #     web3.fromWei(
     #         proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address), "ether"
