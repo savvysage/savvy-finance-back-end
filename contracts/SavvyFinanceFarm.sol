@@ -566,7 +566,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         address _token,
         address _staker,
         string[2] memory _actionPerformed
-    ) public {
+    ) internal {
         if (!tokensData[_token].isActive) return;
         if (!stakersData[_staker].isActive) return;
 
