@@ -32,7 +32,7 @@ contract_name_to_mock = {
 
 
 def print_json(json_data):
-    print(json.dumps(json_data, sort_keys=False, indent=4))
+    print(json.dumps(json_data, sort_keys=False, indent=4), "\n\n")
 
 
 def get_account(index=0, id=None):

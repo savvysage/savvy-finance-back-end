@@ -26,7 +26,6 @@ def get_tokens():
     return {
         "wbnb": get_contract("wbnb_token").address,
         "busd": get_contract("busd_token").address,
-        "link": get_contract("link_token").address,
         "wbnb_busd": get_contract("wbnb_busd_lp_token").address,
     }
 
@@ -80,74 +79,53 @@ def get_tokens_data(contract, tokens, account=get_account()):
     for token_name in tokens:
         token = tokens[token_name]
         token_data = list(contract.tokensData(token, {"from": account}))
-        token_data[3] = float(web3.fromWei(token_data[3], "ether"))
         token_data[4] = float(web3.fromWei(token_data[4], "ether"))
         token_data[5] = float(web3.fromWei(token_data[5], "ether"))
         token_data[6] = float(web3.fromWei(token_data[6], "ether"))
         token_data[7] = float(web3.fromWei(token_data[7], "ether"))
         token_data[8] = float(web3.fromWei(token_data[8], "ether"))
+        token_data[9] = float(web3.fromWei(token_data[9], "ether"))
         tokens_data[token_name] = token_data
     return tokens_data
 
 
-def get_stakers_data(contract, account=get_account()):
-    stakers = contract.getStakers()
+def get_stakers_data(contract, stakers=None, account=get_account()):
+    if not stakers:
+        stakers = contract.getStakers()
     stakers_data = {}
     for staker in stakers:
-        staker_data = list(contract.stakersData(staker, {"from": account}))
+        staker_data = list(contract.getStakerData(staker, {"from": account}))
+        staker_data[2] = list(staker_data[2])
+        for index, reward in enumerate(staker_data[2]):
+            reward = list(reward)
+            reward[2] = float(web3.fromWei(reward[2], "ether"))
+            reward[3] = float(web3.fromWei(reward[3], "ether"))
+            reward[5] = float(web3.fromWei(reward[5], "ether"))
+            reward[6] = float(web3.fromWei(reward[6], "ether"))
+            reward[7] = float(web3.fromWei(reward[7], "ether"))
+            reward[8] = list(reward[8])
+            staker_data[2][index] = reward
         stakers_data[staker] = staker_data
     return stakers_data
 
 
-def get_stakers_rewards_data(contract, account=get_account()):
-    stakers = contract.getStakers()
-    stakers_rewards_data = {}
-    for staker in stakers:
-        staker_rewards_data = list(
-            contract.getStakerRewardsData(staker, {"from": account})
-        )
-        for index, staker_reward_data in enumerate(staker_rewards_data):
-            staker_reward_data = list(staker_reward_data)
-            staker_reward_data[3] = float(web3.fromWei(staker_reward_data[3], "ether"))
-            staker_rewards_data[index] = staker_reward_data
-        stakers_rewards_data[staker] = staker_rewards_data
-    return stakers_rewards_data
-
-
-def get_staking_data(contract, tokens, account=get_account()):
+def get_tokens_stakers_data(contract, tokens, stakers=None, account=get_account()):
     # tokens = contract.getTokens()
-    stakers = contract.getStakers()
-    staking_data = {}
+    if not stakers:
+        stakers = contract.getStakers()
+    tokens_stakers_data = {}
     for token_name in tokens:
         token = tokens[token_name]
-        token_staking_data = {}
+        token_stakers_data = {}
         for staker in stakers:
             token_staker_data = list(
-                contract.stakingData(token, staker, {"from": account})
+                contract.tokensStakersData(token, staker, {"from": account})
             )
             token_staker_data[0] = float(web3.fromWei(token_staker_data[0], "ether"))
-            token_staking_data[staker] = token_staker_data
-        staking_data[token_name] = token_staking_data
-    return staking_data
-
-
-def get_staking_rewards_data(contract, tokens, account=get_account()):
-    # tokens = contract.getTokens()
-    stakers = contract.getStakers()
-    staking_rewards_data = {}
-    for token_name in tokens:
-        token = tokens[token_name]
-        token_staking_rewards_data = {}
-        for staker in stakers:
-            token_staker_rewards_data = list(
-                contract.stakingRewardsData(token, staker, {"from": account})
-            )
-            token_staker_rewards_data[0] = float(
-                web3.fromWei(token_staker_rewards_data[0], "ether")
-            )
-            token_staking_rewards_data[staker] = token_staker_rewards_data
-        staking_rewards_data[token_name] = token_staking_rewards_data
-    return staking_rewards_data
+            token_staker_data[1] = float(web3.fromWei(token_staker_data[1], "ether"))
+            token_stakers_data[staker] = token_staker_data
+        tokens_stakers_data[token_name] = token_stakers_data
+    return tokens_stakers_data
 
 
 def exclude_from_fees(contract, address, account=get_account()):
@@ -230,25 +208,29 @@ def set_lp_tokens_prices(contract, tokens, account=get_account()):
 
 
 def deposit_token(contract, token, amount, account=get_account()):
-    amount = web3.toWei(amount, "ether")
-    token.approve(contract.address, amount, {"from": account}).wait(1)
-    contract.depositToken(token.address, amount, {"from": account}).wait(1)
+    amount2 = web3.toWei(amount, "ether")
+    token.approve(contract.address, amount2, {"from": account}).wait(1)
+    contract.depositToken(token.address, amount2, {"from": account}).wait(1)
+    print("Deposited " + str(amount) + " " + token.symbol() + ".")
 
 
 def withdraw_token(contract, token, amount, account=get_account()):
-    amount = web3.toWei(amount, "ether")
-    contract.withdrawToken(token.address, amount, {"from": account}).wait(1)
+    amount2 = web3.toWei(amount, "ether")
+    contract.withdrawToken(token.address, amount2, {"from": account}).wait(1)
+    print("Withdrew " + str(amount) + " " + token.symbol() + ".")
 
 
 def stake_token(contract, token, amount, account=get_account()):
-    amount = web3.toWei(amount, "ether")
-    token.approve(contract.address, amount, {"from": account}).wait(1)
-    contract.stakeToken(token.address, amount, {"from": account}).wait(1)
+    amount2 = web3.toWei(amount, "ether")
+    token.approve(contract.address, amount2, {"from": account}).wait(1)
+    contract.stakeToken(token.address, amount2, {"from": account}).wait(1)
+    print("Staked " + str(amount) + " " + token.symbol() + ".")
 
 
 def unstake_token(contract, token, amount, account=get_account()):
-    amount = web3.toWei(amount, "ether")
-    contract.unstakeToken(token.address, amount, {"from": account}).wait(1)
+    amount2 = web3.toWei(amount, "ether")
+    contract.unstakeToken(token.address, amount2, {"from": account}).wait(1)
+    print("Unstaked " + str(amount) + " " + token.symbol() + ".")
 
 
 def copy_to_front_end(src, dest):
@@ -268,31 +250,46 @@ def update_front_end():
     print("Front end updated!")
 
 
-def main():
-    proxy_admin = ProxyAdmin[-1]
-    # proxy_admin = deploy_proxy_admin()
+def get_contracts(deploy=None):
+    if deploy == "all":
+        proxy_admin = deploy_proxy_admin()
+        savvy_finance = deploy_savvy_finance_upgradeable()
+        savvy_finance_proxy = deploy_transparent_upgradeable_proxy(
+            proxy_admin, savvy_finance, web3.toWei(1000000, "ether")
+        )
+        savvy_finance_farm = deploy_savvy_finance_farm()
+        savvy_finance_farm_proxy = deploy_transparent_upgradeable_proxy(
+            proxy_admin, savvy_finance_farm
+        )
+    elif deploy == "farm":
+        proxy_admin = ProxyAdmin[-1]
+        # savvy_finance = SavvyFinanceUpgradeable[-1]
+        savvy_finance_proxy = TransparentUpgradeableProxy[-2]
+        savvy_finance_farm = deploy_savvy_finance_farm()
+        savvy_finance_farm_proxy = deploy_transparent_upgradeable_proxy(
+            proxy_admin, savvy_finance_farm
+        )
+    else:
+        proxy_admin = ProxyAdmin[-1]
+        # savvy_finance = SavvyFinanceUpgradeable[-1]
+        savvy_finance_proxy = TransparentUpgradeableProxy[-2]
+        # savvy_finance_farm = SavvyFinanceFarm[-1]
+        savvy_finance_farm_proxy = TransparentUpgradeableProxy[-1]
 
-    savvy_finance = SavvyFinanceUpgradeable[-1]
-    savvy_finance_proxy = TransparentUpgradeableProxy[-2]
-    # savvy_finance = deploy_savvy_finance_upgradeable()
-    # savvy_finance_proxy = deploy_transparent_upgradeable_proxy(
-    #     proxy_admin, savvy_finance, web3.toWei(1000000, "ether")
-    # )
     proxy_savvy_finance = Contract.from_abi(
         savvy_finance._name, savvy_finance_proxy.address, savvy_finance.abi
     )
-
-    savvy_finance_farm = SavvyFinanceFarm[-1]
-    savvy_finance_farm_proxy = TransparentUpgradeableProxy[-1]
-    # savvy_finance_farm = deploy_savvy_finance_farm()
-    # savvy_finance_farm_proxy = deploy_transparent_upgradeable_proxy(
-    #     proxy_admin, savvy_finance_farm
-    # )
     proxy_savvy_finance_farm = Contract.from_abi(
         savvy_finance_farm._name,
         savvy_finance_farm_proxy.address,
         savvy_finance_farm.abi,
     )
+    return proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm
+
+
+def main():
+    proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm = get_contracts("all")
+
     # print_json(SavvyFinanceUpgradeable.get_verification_info())
 
     #####
@@ -313,45 +310,43 @@ def main():
     #####
 
     tokens = {"svf": proxy_savvy_finance.address} | get_tokens()
-    # set_token_types(proxy_savvy_finance_farm, ["DEFAULT", "LP"])
-    # add_tokens(proxy_savvy_finance_farm, tokens)
-    # activate_tokens(proxy_savvy_finance_farm, tokens)
-    # set_tokens_prices(proxy_savvy_finance_farm, tokens)
+    set_token_types(proxy_savvy_finance_farm, ["DEFAULT", "LP"])
+    add_tokens(proxy_savvy_finance_farm, tokens)
+    activate_tokens(proxy_savvy_finance_farm, tokens)
+    set_tokens_prices(proxy_savvy_finance_farm, tokens)
 
     # add_tokens(proxy_savvy_finance_farm, {"svf": tokens["svf"]})
     # activate_tokens(proxy_savvy_finance_farm, {"svf": tokens["svf"]})
     # set_tokens_prices(proxy_savvy_finance_farm, {"svf": tokens["svf"]})
     #####
-    # deposit_token(proxy_savvy_finance_farm, proxy_savvy_finance, 20000)
-    # withdraw_token(proxy_savvy_finance_farm, proxy_savvy_finance, 10000)
-    # exclude_from_fees(proxy_savvy_finance_farm, get_account().address)
-    # stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000)
-    # unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
-    # stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
+    deposit_token(proxy_savvy_finance_farm, proxy_savvy_finance, 20000)
+    withdraw_token(proxy_savvy_finance_farm, proxy_savvy_finance, 10000)
+    exclude_from_fees(proxy_savvy_finance_farm, get_account().address)
+    stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000)
+    unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
+    stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
 
     #####
     # print(
-    #     proxy_savvy_finance_farm.calculateStakerRewardValue(
-    #         get_account().address, tokens["svf"]
+    #     proxy_savvy_finance_farm.calculateStakingRewardValue(
+    #         tokens["svf"], get_account().address
     #     )
     # )
     # print(
     #     web3.fromWei(
-    #         proxy_savvy_finance_farm.calculateStakerRewardValue(
-    #             get_account().address, tokens["svf"]
+    #         proxy_savvy_finance_farm.calculateStakingRewardValue(
+    #             tokens["svf"], get_account().address
     #         ),
     #         "ether",
     #     )
     # )
-    # proxy_savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
-    # proxy_savvy_finance_farm.rewardStakers({"from": get_account()}).wait(1)
+    # proxy_savvy_finance_farm.issueStakingRewards({"from": get_account()}).wait(1)
+    # proxy_savvy_finance_farm.issueStakingRewards({"from": get_account()}).wait(1)
     #####
 
     print_json(get_tokens_data(proxy_savvy_finance_farm, tokens))
     print_json(get_stakers_data(proxy_savvy_finance_farm))
-    print_json(get_stakers_rewards_data(proxy_savvy_finance_farm))
-    print_json(get_staking_data(proxy_savvy_finance_farm, tokens))
-    print_json(get_staking_rewards_data(proxy_savvy_finance_farm, tokens))
+    print_json(get_tokens_stakers_data(proxy_savvy_finance_farm, tokens))
     print(
         web3.fromWei(
             proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address), "ether"

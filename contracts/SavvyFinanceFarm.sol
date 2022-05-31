@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 contract SavvyFinanceFarm is Ownable, AccessControl {
     address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
@@ -18,6 +19,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     address[] public tokens;
     struct TokenDetails {
         bool isActive;
+        bool hasMultiReward;
         string name;
         uint256 _type;
         uint256 price;
@@ -34,41 +36,38 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     mapping(address => TokenDetails) public tokensData;
 
     address[] public stakers;
+    struct StakerRewardDetails {
+        uint256 id;
+        address stakedToken;
+        uint256 stakedTokenPrice;
+        uint256 stakedTokenAmount;
+        address rewardToken;
+        uint256 rewardTokenPrice;
+        uint256 rewardTokenAmount;
+        uint256 stakingDurationInSeconds;
+        string[2] actionPerformed;
+        uint256 timestampAdded;
+        uint256 timestampLastUpdated;
+    }
     struct StakerDetails {
         bool isActive;
         uint256 uniqueTokensStaked;
+        StakerRewardDetails[] rewards;
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
     }
     mapping(address => StakerDetails) public stakersData;
 
-    struct StakerRewardDetails {
-        uint256 id;
-        address token;
-        address rewardToken;
-        uint256 rewardAmount;
+    struct TokenStakerDetails {
+        uint256 rewardBalance;
+        uint256 stakingBalance;
+        address stakingRewardToken;
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
     }
-    mapping(address => StakerRewardDetails[]) public stakersRewardsData;
-
-    struct StakingDetails {
-        uint256 balance;
-        address rewardToken;
-        uint256 timestampAdded;
-        uint256 timestampLastUpdated;
-    }
-    // token => staker => StakingDetails
-    mapping(address => mapping(address => StakingDetails)) public stakingData;
-
-    struct StakingRewardDetails {
-        uint256 balance;
-        uint256 timestampAdded;
-        uint256 timestampLastUpdated;
-    }
-    // reward_token => staker => StakingRewardDetails
-    mapping(address => mapping(address => StakingRewardDetails))
-        public stakingRewardsData;
+    // token => staker => TokenStakerDetails
+    mapping(address => mapping(address => TokenStakerDetails))
+        public tokensStakersData;
 
     event Stake(address indexed staker, address indexed token, uint256 amount);
     event Unstake(
@@ -139,6 +138,14 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         return tokens;
     }
 
+    function getTokenData(address _token)
+        public
+        view
+        returns (TokenDetails memory)
+    {
+        return tokensData[_token];
+    }
+
     function getTokenValue(address _token) public view returns (uint256) {
         return tokensData[_token].rewardBalance * tokensData[_token].price;
     }
@@ -147,12 +154,12 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         return stakers;
     }
 
-    function getStakerRewardsData(address _staker)
+    function getStakerData(address _staker)
         public
         view
-        returns (StakerRewardDetails[] memory)
+        returns (StakerDetails memory)
     {
-        return stakersRewardsData[_staker];
+        return stakersData[_staker];
     }
 
     function setDevelopmentWallet(address _developmentWallet) public onlyOwner {
@@ -366,7 +373,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         require(_amount > 0, "Amount must be greater than zero.");
         require(
             tokensData[_token].rewardBalance >= _amount,
-            "Amount is greater than token balance."
+            "Amount is greater than token reward balance."
         );
         tokensData[_token].rewardBalance -= _amount;
         IERC20(_token).transfer(_msgSender(), _amount);
@@ -394,7 +401,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         }
         IERC20(_token).transferFrom(_msgSender(), address(this), stakeAmount);
 
-        if (stakingData[_token][_msgSender()].balance == 0) {
+        if (tokensStakersData[_token][_msgSender()].stakingBalance == 0) {
             if (stakersData[_msgSender()].uniqueTokensStaked == 0) {
                 if (!stakerExists(_msgSender())) stakers.push(_msgSender());
                 stakersData[_msgSender()].isActive = true;
@@ -404,16 +411,21 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
                 ? stakersData[_msgSender()].timestampAdded = block.timestamp
                 : stakersData[_msgSender()].timestampLastUpdated = block
                 .timestamp;
-            stakingData[_token][_msgSender()].rewardToken = _token;
+            tokensStakersData[_token][_msgSender()].stakingRewardToken = _token;
         } else {
-            rewardStaker(_msgSender(), _token);
+            issueStakingReward(
+                _token,
+                _msgSender(),
+                ["stake", Strings.toString(fromWei(_amount))]
+            );
         }
 
-        stakingData[_token][_msgSender()].balance += stakeAmount;
-        stakingData[_token][_msgSender()].timestampAdded == 0
-            ? stakingData[_token][_msgSender()].timestampAdded = block.timestamp
-            : stakingData[_token][_msgSender()].timestampLastUpdated = block
-            .timestamp;
+        tokensStakersData[_token][_msgSender()].stakingBalance += stakeAmount;
+        tokensStakersData[_token][_msgSender()].timestampAdded == 0
+            ? tokensStakersData[_token][_msgSender()].timestampAdded = block
+                .timestamp
+            : tokensStakersData[_token][_msgSender()]
+                .timestampLastUpdated = block.timestamp;
         tokensData[_token].stakingBalance += stakeAmount;
         tokensData[_token].timestampLastUpdated = block.timestamp;
         emit Stake(_msgSender(), _token, stakeAmount);
@@ -423,13 +435,17 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         // require(tokensData[_token].isActive, "Token not active.");
         require(_amount > 0, "Amount must be greater than zero.");
         require(
-            stakingData[_token][_msgSender()].balance >= _amount,
+            tokensStakersData[_token][_msgSender()].stakingBalance >= _amount,
             "Amount is greater than token staking balance."
         );
 
-        rewardStaker(_msgSender(), _token);
+        issueStakingReward(
+            _token,
+            _msgSender(),
+            ["unstake", Strings.toString(fromWei(_amount))]
+        );
 
-        if (stakingData[_token][_msgSender()].balance == _amount) {
+        if (tokensStakersData[_token][_msgSender()].stakingBalance == _amount) {
             if (stakersData[_msgSender()].uniqueTokensStaked == 1) {
                 stakersData[_msgSender()].isActive = false;
             }
@@ -437,11 +453,12 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             stakersData[_msgSender()].timestampLastUpdated = block.timestamp;
         }
 
-        stakingData[_token][_msgSender()].balance -= _amount;
-        stakingData[_token][_msgSender()].timestampAdded == 0
-            ? stakingData[_token][_msgSender()].timestampAdded = block.timestamp
-            : stakingData[_token][_msgSender()].timestampLastUpdated = block
-            .timestamp;
+        tokensStakersData[_token][_msgSender()].stakingBalance -= _amount;
+        tokensStakersData[_token][_msgSender()].timestampAdded == 0
+            ? tokensStakersData[_token][_msgSender()].timestampAdded = block
+                .timestamp
+            : tokensStakersData[_token][_msgSender()]
+                .timestampLastUpdated = block.timestamp;
         tokensData[_token].stakingBalance -= _amount;
         tokensData[_token].timestampLastUpdated = block.timestamp;
 
@@ -463,10 +480,11 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     {
         require(_amount > 0, "Amount must be greater than zero.");
         require(
-            stakingRewardsData[_reward_token][_msgSender()].balance >= _amount,
+            tokensStakersData[_reward_token][_msgSender()].rewardBalance >=
+                _amount,
             "Amount is greater than reward token balance."
         );
-        stakingRewardsData[_reward_token][_msgSender()].balance -= _amount;
+        tokensStakersData[_reward_token][_msgSender()].rewardBalance -= _amount;
         IERC20(_reward_token).transfer(_msgSender(), _amount);
         emit WithdrawStakingReward(_msgSender(), _reward_token, _amount);
     }
@@ -494,99 +512,148 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
                 "Reward token not active."
             );
         }
-        stakingData[_token][_staker].rewardToken = _reward_token;
-        return stakingData[_token][_staker].rewardToken;
+        tokensStakersData[_token][_staker].stakingRewardToken = _reward_token;
+        return tokensStakersData[_token][_staker].stakingRewardToken;
     }
 
-    function calculateStakerRewardValue(address _staker, address _token)
+    function calculateStakingRewardValue(address _token, address _staker)
         internal
         view
-        returns (uint256)
+        returns (
+            uint256,
+            uint256,
+            uint256,
+            uint256
+        )
     {
-        if (!tokenExists(_token)) return 0;
+        if (!tokenExists(_token)) return (0, 0, 0, 0);
         TokenDetails memory tokenData = tokensData[_token];
-        if (!stakerExists(_staker)) return 0;
-        StakingDetails memory stakerData = stakingData[_token][_staker];
-        if (stakerData.balance <= 0) return 0;
+        if (!stakerExists(_staker)) return (0, 0, 0, 0);
+        TokenStakerDetails memory tokenStakerData = tokensStakersData[_token][
+            _staker
+        ];
+        if (tokenStakerData.stakingBalance <= 0) return (0, 0, 0, 0);
 
-        uint256 stakerValue = fromWei(stakerData.balance * tokenData.price);
+        uint256 stakingValue = fromWei(
+            tokenStakerData.stakingBalance * tokenData.price
+        );
         uint256 rate = tokenData.stakingApr / 100;
-        uint256 timestampStarted = stakerData.timestampLastUpdated != 0
-            ? stakerData.timestampLastUpdated
-            : stakerData.timestampAdded;
-        uint256 timestampEnded = block.timestamp;
-        uint256 timeInSeconds = toWei(timestampEnded - timestampStarted);
-        uint256 timeInYears = secondsToYears(timeInSeconds);
+        uint256 stakingTimestampStarted = tokenStakerData
+            .timestampLastUpdated != 0
+            ? tokenStakerData.timestampLastUpdated
+            : tokenStakerData.timestampAdded;
+        // uint256 stakingTimestampEnded = block.timestamp;
+        uint256 stakingTimestampEnded = block.timestamp + (60 * 60 * 24);
+        uint256 stakingDurationInSeconds = toWei(
+            stakingTimestampEnded - stakingTimestampStarted
+        );
+        uint256 stakingDurationInYears = secondsToYears(
+            stakingDurationInSeconds
+        );
+        uint256 stakingRewardValue = (stakingValue *
+            rate *
+            stakingDurationInYears) / (10**36);
 
-        return (stakerValue * rate * timeInYears) / (10**36);
+        return (
+            stakingRewardValue,
+            stakingDurationInSeconds,
+            tokenStakerData.stakingBalance,
+            tokenData.price
+        );
     }
 
-    function rewardStaker(address _staker, address _token) internal {
+    function issueStakingReward(
+        address _token,
+        address _staker,
+        string[2] memory _actionPerformed
+    ) public {
         if (!tokensData[_token].isActive) return;
         if (!stakersData[_staker].isActive) return;
 
         TokenDetails memory tokenData = tokensData[_token];
-        StakingDetails memory stakingData1 = stakingData[_token][_staker];
-        if (stakingData1.balance <= 0) return;
+        TokenStakerDetails memory tokenStakerData = tokensStakersData[_token][
+            _staker
+        ];
+        if (tokenStakerData.stakingBalance <= 0) return;
 
-        if (!tokensData[stakingData1.rewardToken].isActive) {
-            if (stakingData1.rewardToken == tokenData.rewardToken) return;
-            stakingData1.rewardToken = setStakerRewardToken(
+        if (!tokensData[tokenStakerData.stakingRewardToken].isActive) {
+            if (tokenStakerData.stakingRewardToken == tokenData.rewardToken)
+                return;
+            tokenStakerData.stakingRewardToken = setStakerRewardToken(
                 _staker,
                 _token,
                 tokenData.rewardToken,
                 false
             );
-            if (!tokensData[stakingData1.rewardToken].isActive) return;
+            if (!tokensData[tokenStakerData.stakingRewardToken].isActive)
+                return;
         }
 
-        uint256 stakerRewardValue = calculateStakerRewardValue(_staker, _token);
+        (
+            uint256 stakingRewardValue,
+            uint256 stakingDurationInSeconds,
+            uint256 stakingBalance,
+            uint256 tokenPrice
+        ) = calculateStakingRewardValue(_token, _staker);
+        if (stakingRewardValue == 0) return;
+
         uint256 stakerRewardTokenValue = getTokenValue(
-            stakingData1.rewardToken
+            tokenStakerData.stakingRewardToken
         );
-
-        if (stakerRewardTokenValue < stakerRewardValue) {
-            if (stakingData1.rewardToken == tokenData.rewardToken) {
+        if (stakerRewardTokenValue < stakingRewardValue) {
+            if (tokenStakerData.stakingRewardToken == tokenData.rewardToken) {
                 deactivateToken(_token);
                 return;
             }
-            stakingData1.rewardToken = setStakerRewardToken(
+            tokenStakerData.stakingRewardToken = setStakerRewardToken(
                 _staker,
                 _token,
                 tokenData.rewardToken,
                 false
             );
-            stakerRewardTokenValue = getTokenValue(stakingData1.rewardToken);
-            if (stakerRewardTokenValue < stakerRewardValue) {
+            stakerRewardTokenValue = getTokenValue(
+                tokenStakerData.stakingRewardToken
+            );
+            if (stakerRewardTokenValue < stakingRewardValue) {
                 deactivateToken(_token);
                 return;
             }
         }
 
-        uint256 stakerRewardTokenAmount = toWei(
-            stakerRewardValue / tokensData[stakingData1.rewardToken].price
+        uint256 stakingRewardTokenPrice = tokensData[
+            tokenStakerData.stakingRewardToken
+        ].price;
+        uint256 stakingRewardTokenAmount = toWei(
+            stakingRewardValue / stakingRewardTokenPrice
         );
-        if (stakerRewardTokenAmount <= 0) return;
+        if (stakingRewardTokenAmount <= 0) return;
 
-        tokensData[stakingData1.rewardToken]
-            .rewardBalance -= stakerRewardTokenAmount;
-        tokensData[stakingData1.rewardToken].timestampLastUpdated = block
-            .timestamp;
-        stakingRewardsData[stakingData1.rewardToken][_staker]
-            .balance += stakerRewardTokenAmount;
-        stakingRewardsData[stakingData1.rewardToken][_staker]
+        tokensData[tokenStakerData.stakingRewardToken]
+            .rewardBalance -= stakingRewardTokenAmount;
+        tokensData[tokenStakerData.stakingRewardToken]
             .timestampLastUpdated = block.timestamp;
+        tokensStakersData[tokenStakerData.stakingRewardToken][_staker]
+            .rewardBalance += stakingRewardTokenAmount;
+        tokensStakersData[tokenStakerData.stakingRewardToken][_staker]
+            .timestampLastUpdated = block.timestamp;
+        tokensStakersData[_token][_staker].timestampLastUpdated = block
+            .timestamp;
 
         StakerRewardDetails memory stakerRewardData;
-        stakerRewardData.id = stakersRewardsData[_staker].length;
-        stakerRewardData.token = _token;
-        stakerRewardData.rewardToken = stakingData1.rewardToken;
-        stakerRewardData.rewardAmount = stakerRewardTokenAmount;
+        stakerRewardData.id = stakersData[_staker].rewards.length;
+        stakerRewardData.stakedToken = _token;
+        stakerRewardData.stakedTokenPrice = tokenPrice;
+        stakerRewardData.stakedTokenAmount = tokenStakerData.stakingBalance;
+        stakerRewardData.rewardToken = tokenStakerData.stakingRewardToken;
+        stakerRewardData.rewardTokenPrice = stakingRewardTokenPrice;
+        stakerRewardData.rewardTokenAmount = stakingRewardTokenAmount;
+        stakerRewardData.stakingDurationInSeconds = stakingDurationInSeconds;
+        stakerRewardData.actionPerformed = _actionPerformed;
         stakerRewardData.timestampAdded = block.timestamp;
-        stakersRewardsData[_staker].push(stakerRewardData);
+        stakersData[_staker].rewards.push(stakerRewardData);
     }
 
-    function rewardStakers() public onlyOwner {
+    function issueStakingRewards() public onlyOwner {
         for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
             address token = tokens[tokenIndex];
 
@@ -597,7 +664,11 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             ) {
                 address staker = stakers[stakerIndex];
 
-                rewardStaker(staker, token);
+                issueStakingReward(
+                    token,
+                    staker,
+                    ["issue staking rewards", ""]
+                );
             }
         }
     }
