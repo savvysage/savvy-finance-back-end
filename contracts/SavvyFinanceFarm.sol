@@ -551,8 +551,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             .timestampLastUpdated != 0
             ? tokenStakerData.timestampLastUpdated
             : tokenStakerData.timestampAdded;
-        // uint256 stakingTimestampEnded = block.timestamp;
-        uint256 stakingTimestampEnded = block.timestamp + (60 * 60 * 24);
+        uint256 stakingTimestampEnded = block.timestamp;
         uint256 stakingDurationInSeconds = toWei(
             stakingTimestampEnded - stakingTimestampStarted
         );

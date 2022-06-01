@@ -78,7 +78,7 @@ def get_tokens_data(contract, tokens, account=get_account()):
     tokens_data = {}
     for token_name in tokens:
         token = tokens[token_name]
-        token_data = list(contract.tokensData(token, {"from": account}))
+        token_data = list(contract.getTokenData(token, {"from": account}))
         token_data[4] = float(web3.fromWei(token_data[4], "ether"))
         token_data[5] = float(web3.fromWei(token_data[5], "ether"))
         token_data[6] = float(web3.fromWei(token_data[6], "ether"))
@@ -95,16 +95,6 @@ def get_stakers_data(contract, stakers=None, account=get_account()):
     stakers_data = {}
     for staker in stakers:
         staker_data = list(contract.getStakerData(staker, {"from": account}))
-        # staker_data[2] = list(staker_data[2])
-        # for index, reward in enumerate(staker_data[2]):
-        #     reward = list(reward)
-        #     reward[2] = float(web3.fromWei(reward[2], "ether"))
-        #     reward[3] = float(web3.fromWei(reward[3], "ether"))
-        #     reward[5] = float(web3.fromWei(reward[5], "ether"))
-        #     reward[6] = float(web3.fromWei(reward[6], "ether"))
-        #     reward[7] = float(web3.fromWei(reward[7], "ether"))
-        #     reward[8] = list(reward[8])
-        #     staker_data[2][index] = reward
         stakers_data[staker] = staker_data
     return stakers_data
 
