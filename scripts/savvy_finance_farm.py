@@ -95,16 +95,16 @@ def get_stakers_data(contract, stakers=None, account=get_account()):
     stakers_data = {}
     for staker in stakers:
         staker_data = list(contract.getStakerData(staker, {"from": account}))
-        staker_data[2] = list(staker_data[2])
-        for index, reward in enumerate(staker_data[2]):
-            reward = list(reward)
-            reward[2] = float(web3.fromWei(reward[2], "ether"))
-            reward[3] = float(web3.fromWei(reward[3], "ether"))
-            reward[5] = float(web3.fromWei(reward[5], "ether"))
-            reward[6] = float(web3.fromWei(reward[6], "ether"))
-            reward[7] = float(web3.fromWei(reward[7], "ether"))
-            reward[8] = list(reward[8])
-            staker_data[2][index] = reward
+        # staker_data[2] = list(staker_data[2])
+        # for index, reward in enumerate(staker_data[2]):
+        #     reward = list(reward)
+        #     reward[2] = float(web3.fromWei(reward[2], "ether"))
+        #     reward[3] = float(web3.fromWei(reward[3], "ether"))
+        #     reward[5] = float(web3.fromWei(reward[5], "ether"))
+        #     reward[6] = float(web3.fromWei(reward[6], "ether"))
+        #     reward[7] = float(web3.fromWei(reward[7], "ether"))
+        #     reward[8] = list(reward[8])
+        #     staker_data[2][index] = reward
         stakers_data[staker] = staker_data
     return stakers_data
 
@@ -119,10 +119,20 @@ def get_tokens_stakers_data(contract, tokens, stakers=None, account=get_account(
         token_stakers_data = {}
         for staker in stakers:
             token_staker_data = list(
-                contract.tokensStakersData(token, staker, {"from": account})
+                contract.getTokenStakerData(token, staker, {"from": account})
             )
             token_staker_data[0] = float(web3.fromWei(token_staker_data[0], "ether"))
             token_staker_data[1] = float(web3.fromWei(token_staker_data[1], "ether"))
+            token_staker_data[3] = list(token_staker_data[3])
+            for index, staking_reward in enumerate(token_staker_data[3]):
+                staking_reward = list(staking_reward)
+                staking_reward[3] = float(web3.fromWei(staking_reward[3], "ether"))
+                staking_reward[4] = float(web3.fromWei(staking_reward[4], "ether"))
+                staking_reward[6] = float(web3.fromWei(staking_reward[6], "ether"))
+                staking_reward[7] = float(web3.fromWei(staking_reward[7], "ether"))
+                staking_reward[8] = float(web3.fromWei(staking_reward[8], "ether"))
+                staking_reward[9] = list(staking_reward[9])
+                token_staker_data[3][index] = staking_reward
             token_stakers_data[staker] = token_staker_data
         tokens_stakers_data[token_name] = token_stakers_data
     return tokens_stakers_data

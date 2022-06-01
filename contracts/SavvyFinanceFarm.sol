@@ -36,8 +36,17 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     mapping(address => TokenDetails) public tokensData;
 
     address[] public stakers;
-    struct StakerRewardDetails {
+    struct StakerDetails {
+        bool isActive;
+        uint256 uniqueTokensStaked;
+        uint256 timestampAdded;
+        uint256 timestampLastUpdated;
+    }
+    mapping(address => StakerDetails) public stakersData;
+
+    struct TokenStakerRewardDetails {
         uint256 id;
+        address staker;
         address stakedToken;
         uint256 stakedTokenPrice;
         uint256 stakedTokenAmount;
@@ -49,19 +58,11 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
     }
-    struct StakerDetails {
-        bool isActive;
-        uint256 uniqueTokensStaked;
-        StakerRewardDetails[] rewards;
-        uint256 timestampAdded;
-        uint256 timestampLastUpdated;
-    }
-    mapping(address => StakerDetails) public stakersData;
-
     struct TokenStakerDetails {
         uint256 rewardBalance;
         uint256 stakingBalance;
         address stakingRewardToken;
+        TokenStakerRewardDetails[] stakingRewards;
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
     }
@@ -138,6 +139,10 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         return tokens;
     }
 
+    function getStakers() public view returns (address[] memory) {
+        return stakers;
+    }
+
     function getTokenData(address _token)
         public
         view
@@ -146,20 +151,24 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         return tokensData[_token];
     }
 
-    function getTokenValue(address _token) public view returns (uint256) {
-        return tokensData[_token].rewardBalance * tokensData[_token].price;
-    }
-
-    function getStakers() public view returns (address[] memory) {
-        return stakers;
-    }
-
     function getStakerData(address _staker)
         public
         view
         returns (StakerDetails memory)
     {
         return stakersData[_staker];
+    }
+
+    function getTokenStakerData(address _token, address _staker)
+        public
+        view
+        returns (TokenStakerDetails memory)
+    {
+        return tokensStakersData[_token][_staker];
+    }
+
+    function getTokenValue(address _token) public view returns (uint256) {
+        return tokensData[_token].rewardBalance * tokensData[_token].price;
     }
 
     function setDevelopmentWallet(address _developmentWallet) public onlyOwner {
@@ -639,18 +648,25 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         tokensStakersData[_token][_staker].timestampLastUpdated = block
             .timestamp;
 
-        StakerRewardDetails memory stakerRewardData;
-        stakerRewardData.id = stakersData[_staker].rewards.length;
-        stakerRewardData.stakedToken = _token;
-        stakerRewardData.stakedTokenPrice = tokenPrice;
-        stakerRewardData.stakedTokenAmount = tokenStakerData.stakingBalance;
-        stakerRewardData.rewardToken = tokenStakerData.stakingRewardToken;
-        stakerRewardData.rewardTokenPrice = stakingRewardTokenPrice;
-        stakerRewardData.rewardTokenAmount = stakingRewardTokenAmount;
-        stakerRewardData.stakingDurationInSeconds = stakingDurationInSeconds;
-        stakerRewardData.actionPerformed = _actionPerformed;
-        stakerRewardData.timestampAdded = block.timestamp;
-        stakersData[_staker].rewards.push(stakerRewardData);
+        TokenStakerRewardDetails memory tokenStakerRewardData;
+        tokenStakerRewardData.id = tokensStakersData[_token][_staker]
+            .stakingRewards
+            .length;
+        tokenStakerRewardData.staker = _staker;
+        tokenStakerRewardData.stakedToken = _token;
+        tokenStakerRewardData.stakedTokenPrice = tokenPrice;
+        tokenStakerRewardData.stakedTokenAmount = tokenStakerData
+            .stakingBalance;
+        tokenStakerRewardData.rewardToken = tokenStakerData.stakingRewardToken;
+        tokenStakerRewardData.rewardTokenPrice = stakingRewardTokenPrice;
+        tokenStakerRewardData.rewardTokenAmount = stakingRewardTokenAmount;
+        tokenStakerRewardData
+            .stakingDurationInSeconds = stakingDurationInSeconds;
+        tokenStakerRewardData.actionPerformed = _actionPerformed;
+        tokenStakerRewardData.timestampAdded = block.timestamp;
+        tokensStakersData[_token][_staker].stakingRewards.push(
+            tokenStakerRewardData
+        );
     }
 
     function issueStakingRewards() public onlyOwner {
