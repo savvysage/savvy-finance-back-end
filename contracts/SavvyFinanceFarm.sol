@@ -18,6 +18,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
 
     address[] public tokens;
     struct TokenDetails {
+        uint256 index;
         bool isActive;
         bool hasMultiReward;
         string name;
@@ -37,6 +38,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
 
     address[] public stakers;
     struct StakerDetails {
+        uint256 index;
         bool isActive;
         uint256 uniqueTokensStaked;
         uint256 timestampAdded;
@@ -218,7 +220,9 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     ) public onlyOwner {
         require(!tokenExists(_token), "Token already exists.");
         _setupRole(toRole(_token), _msgSender());
+        uint256 index = tokens.length;
         tokens.push(_token);
+        tokensData[_token].index = index;
         tokensData[_token].name = _name;
         tokensData[_token]._type = _type;
         tokensData[_token].timestampAdded = block.timestamp;
@@ -412,9 +416,14 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
 
         if (tokensStakersData[_token][_msgSender()].stakingBalance == 0) {
             if (stakersData[_msgSender()].uniqueTokensStaked == 0) {
-                if (!stakerExists(_msgSender())) stakers.push(_msgSender());
+                if (!stakerExists(_msgSender())) {
+                    uint256 index = stakers.length;
+                    stakers.push(_msgSender());
+                    stakersData[_msgSender()].index = index;
+                }
                 stakersData[_msgSender()].isActive = true;
             }
+
             stakersData[_msgSender()].uniqueTokensStaked++;
             stakersData[_msgSender()].timestampAdded == 0
                 ? stakersData[_msgSender()].timestampAdded = block.timestamp

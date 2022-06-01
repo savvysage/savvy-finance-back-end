@@ -79,12 +79,12 @@ def get_tokens_data(contract, tokens, account=get_account()):
     for token_name in tokens:
         token = tokens[token_name]
         token_data = list(contract.getTokenData(token, {"from": account}))
-        token_data[4] = float(web3.fromWei(token_data[4], "ether"))
         token_data[5] = float(web3.fromWei(token_data[5], "ether"))
         token_data[6] = float(web3.fromWei(token_data[6], "ether"))
         token_data[7] = float(web3.fromWei(token_data[7], "ether"))
         token_data[8] = float(web3.fromWei(token_data[8], "ether"))
         token_data[9] = float(web3.fromWei(token_data[9], "ether"))
+        token_data[10] = float(web3.fromWei(token_data[10], "ether"))
         tokens_data[token_name] = token_data
     return tokens_data
 
