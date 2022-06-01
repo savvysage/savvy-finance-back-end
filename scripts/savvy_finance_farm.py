@@ -334,14 +334,14 @@ def main():
 
     #####
     # print(
-    #     proxy_savvy_finance_farm.calculateStakingRewardValue(
-    #         tokens["svf"], get_account().address
+    #     proxy_savvy_finance_farm.calculateStakerStakingRewardValue(
+    #         get_account().address, tokens["svf"]
     #     )
     # )
     # print(
     #     web3.fromWei(
-    #         proxy_savvy_finance_farm.calculateStakingRewardValue(
-    #             tokens["svf"], get_account().address
+    #         proxy_savvy_finance_farm.calculateStakerStakingRewardValue(
+    #             get_account().address, tokens["svf"]
     #         ),
     #         "ether",
     #     )

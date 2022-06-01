@@ -78,6 +78,11 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         address indexed token,
         uint256 amount
     );
+    event IssueStakingReward(
+        address indexed staker,
+        address indexed token,
+        TokenStakerRewardDetails rewardData
+    );
     event WithdrawStakingReward(
         address indexed staker,
         address indexed reward_token,
@@ -169,7 +174,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         return tokensStakersData[_token][_staker];
     }
 
-    function getTokenValue(address _token) public view returns (uint256) {
+    function getTokenRewardValue(address _token) public view returns (uint256) {
         return tokensData[_token].rewardBalance * tokensData[_token].price;
     }
 
@@ -364,6 +369,22 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
+    function enableTokenMultiReward(address _token)
+        public
+        onlyRole(toRole(_token))
+    {
+        require(tokenExists(_token), "Token does not exist.");
+        tokensData[_token].hasMultiReward = true;
+    }
+
+    function disableTokenMultiReward(address _token)
+        public
+        onlyRole(toRole(_token))
+    {
+        require(tokenExists(_token), "Token does not exist.");
+        tokensData[_token].hasMultiReward = false;
+    }
+
     function depositToken(address _token, uint256 _amount)
         public
         onlyRole(toRole(_token))
@@ -372,7 +393,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         require(_amount > 0, "Amount must be greater than zero.");
         require(
             IERC20(_token).balanceOf(_msgSender()) >= _amount,
-            "Insufficient token balance."
+            "Insufficient wallet balance."
         );
         IERC20(_token).transferFrom(_msgSender(), address(this), _amount);
         tokensData[_token].rewardBalance += _amount;
@@ -386,10 +407,18 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         require(_amount > 0, "Amount must be greater than zero.");
         require(
             tokensData[_token].rewardBalance >= _amount,
-            "Amount is greater than token reward balance."
+            "Insufficient reward balance."
         );
         tokensData[_token].rewardBalance -= _amount;
         IERC20(_token).transfer(_msgSender(), _amount);
+    }
+
+    function addStaker(address _staker) internal {
+        require(!stakerExists(_staker), "Staker already exists.");
+        uint256 index = stakers.length;
+        stakers.push(_staker);
+        // stakersData[_staker].index = index;
+        stakersData[_staker].timestampAdded = block.timestamp;
     }
 
     function stakeToken(address _token, uint256 _amount) public {
@@ -397,7 +426,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         require(_amount > 0, "Amount must be greater than zero.");
         require(
             IERC20(_token).balanceOf(_msgSender()) >= _amount,
-            "Insufficient token balance."
+            "Insufficient wallet balance."
         );
 
         uint256 stakeFee = (_amount / toWei(100)) * tokensData[_token].stakeFee;
@@ -416,11 +445,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
 
         if (tokensStakersData[_token][_msgSender()].stakingBalance == 0) {
             if (stakersData[_msgSender()].uniqueTokensStaked == 0) {
-                if (!stakerExists(_msgSender())) {
-                    uint256 index = stakers.length;
-                    stakers.push(_msgSender());
-                    // stakersData[_msgSender()].index = index;
-                }
+                if (!stakerExists(_msgSender())) addStaker(_msgSender());
                 stakersData[_msgSender()].isActive = true;
             }
 
@@ -450,11 +475,11 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     }
 
     function unstakeToken(address _token, uint256 _amount) public {
-        // require(tokensData[_token].isActive, "Token not active.");
+        require(tokenExists(_token), "Token does not exist.");
         require(_amount > 0, "Amount must be greater than zero.");
         require(
             tokensStakersData[_token][_msgSender()].stakingBalance >= _amount,
-            "Amount is greater than token staking balance."
+            "Insufficient staking balance."
         );
 
         issueStakingReward(
@@ -510,31 +535,37 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     function setStakingRewardToken(address _token, address _reward_token)
         public
     {
-        setStakerRewardToken(_msgSender(), _token, _reward_token, true);
+        setStakerStakingRewardToken(_msgSender(), _token, _reward_token, true);
     }
 
-    function setStakerRewardToken(
+    function setStakerStakingRewardToken(
         address _staker,
         address _token,
         address _reward_token,
         bool validate
     ) internal returns (address) {
         if (validate) {
-            require(
-                stakersData[_msgSender()].isActive,
-                "Staker does not have this token staked."
-            );
             require(tokensData[_token].isActive, "Token not active.");
+            require(
+                tokensData[_token].hasMultiReward,
+                "Token does not have multi reward."
+            );
             require(
                 tokensData[_reward_token].isActive,
                 "Reward token not active."
             );
+            require(
+                tokensData[_reward_token].hasMultiReward,
+                "Reward token does not have multi reward."
+            );
         }
+
+        if (!stakerExists(_staker)) addStaker(_staker);
         tokensStakersData[_token][_staker].stakingRewardToken = _reward_token;
         return tokensStakersData[_token][_staker].stakingRewardToken;
     }
 
-    function calculateStakingRewardValue(address _token, address _staker)
+    function calculateStakerStakingRewardValue(address _staker, address _token)
         internal
         view
         returns (
@@ -544,9 +575,10 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             uint256
         )
     {
-        if (!tokenExists(_token)) return (0, 0, 0, 0);
-        TokenDetails memory tokenData = tokensData[_token];
         if (!stakerExists(_staker)) return (0, 0, 0, 0);
+        if (!tokenExists(_token)) return (0, 0, 0, 0);
+
+        TokenDetails memory tokenData = tokensData[_token];
         TokenStakerDetails memory tokenStakerData = tokensStakersData[_token][
             _staker
         ];
@@ -596,7 +628,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         if (!tokensData[tokenStakerData.stakingRewardToken].isActive) {
             if (tokenStakerData.stakingRewardToken == tokenData.rewardToken)
                 return;
-            tokenStakerData.stakingRewardToken = setStakerRewardToken(
+            tokenStakerData.stakingRewardToken = setStakerStakingRewardToken(
                 _staker,
                 _token,
                 tokenData.rewardToken,
@@ -611,27 +643,27 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             uint256 stakingDurationInSeconds,
             uint256 stakingBalance,
             uint256 tokenPrice
-        ) = calculateStakingRewardValue(_token, _staker);
+        ) = calculateStakerStakingRewardValue(_staker, _token);
         if (stakingRewardValue == 0) return;
 
-        uint256 stakerRewardTokenValue = getTokenValue(
+        uint256 stakerRewardTokenRewardValue = getTokenRewardValue(
             tokenStakerData.stakingRewardToken
         );
-        if (stakerRewardTokenValue < stakingRewardValue) {
+        if (stakerRewardTokenRewardValue < stakingRewardValue) {
             if (tokenStakerData.stakingRewardToken == tokenData.rewardToken) {
                 deactivateToken(_token);
                 return;
             }
-            tokenStakerData.stakingRewardToken = setStakerRewardToken(
+            tokenStakerData.stakingRewardToken = setStakerStakingRewardToken(
                 _staker,
                 _token,
                 tokenData.rewardToken,
                 false
             );
-            stakerRewardTokenValue = getTokenValue(
+            stakerRewardTokenRewardValue = getTokenRewardValue(
                 tokenStakerData.stakingRewardToken
             );
-            if (stakerRewardTokenValue < stakingRewardValue) {
+            if (stakerRewardTokenRewardValue < stakingRewardValue) {
                 deactivateToken(_token);
                 return;
             }
@@ -675,6 +707,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         tokensStakersData[_token][_staker].stakingRewards.push(
             tokenStakerRewardData
         );
+
+        emit IssueStakingReward(_staker, _token, tokenStakerRewardData);
     }
 
     function issueStakingRewards() public onlyOwner {
