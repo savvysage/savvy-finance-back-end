@@ -73,44 +73,50 @@ def deploy_savvy_finance_farm(account=get_account()):
     )
 
 
-def get_tokens_data(contract, tokens, account=get_account()):
-    # tokens = contract.getTokens()
+def get_tokens_data(contract, tokens=None, account=get_account()):
+    if not tokens:
+        tokens = list(contract.getTokens())
+    else:
+        tokens = list(tokens.values())
+
     tokens_data = {}
-    for token_name in tokens:
-        token = tokens[token_name]
-        token_data = list(contract.getTokenData(token, {"from": account}))
+    for token in tokens:
+        token_data = list(contract.getTokenData(token))
+        token_data[4] = float(web3.fromWei(token_data[4], "ether"))
         token_data[5] = float(web3.fromWei(token_data[5], "ether"))
         token_data[6] = float(web3.fromWei(token_data[6], "ether"))
         token_data[7] = float(web3.fromWei(token_data[7], "ether"))
         token_data[8] = float(web3.fromWei(token_data[8], "ether"))
         token_data[9] = float(web3.fromWei(token_data[9], "ether"))
-        token_data[10] = float(web3.fromWei(token_data[10], "ether"))
-        tokens_data[token_name] = token_data
+        # token_data[10] = float(web3.fromWei(token_data[10], "ether"))
+        tokens_data[token] = token_data
     return tokens_data
 
 
 def get_stakers_data(contract, stakers=None, account=get_account()):
     if not stakers:
-        stakers = contract.getStakers()
+        stakers = list(contract.getStakers())
+
     stakers_data = {}
     for staker in stakers:
-        staker_data = list(contract.getStakerData(staker, {"from": account}))
+        staker_data = list(contract.getStakerData(staker))
         stakers_data[staker] = staker_data
     return stakers_data
 
 
-def get_tokens_stakers_data(contract, tokens, stakers=None, account=get_account()):
-    # tokens = contract.getTokens()
+def get_tokens_stakers_data(contract, tokens=None, stakers=None, account=get_account()):
+    if not tokens:
+        tokens = list(contract.getTokens())
+    else:
+        tokens = list(tokens.values())
     if not stakers:
-        stakers = contract.getStakers()
+        stakers = list(contract.getStakers())
+
     tokens_stakers_data = {}
-    for token_name in tokens:
-        token = tokens[token_name]
+    for token in tokens:
         token_stakers_data = {}
         for staker in stakers:
-            token_staker_data = list(
-                contract.getTokenStakerData(token, staker, {"from": account})
-            )
+            token_staker_data = list(contract.getTokenStakerData(token, staker))
             token_staker_data[0] = float(web3.fromWei(token_staker_data[0], "ether"))
             token_staker_data[1] = float(web3.fromWei(token_staker_data[1], "ether"))
             token_staker_data[3] = list(token_staker_data[3])
@@ -124,7 +130,7 @@ def get_tokens_stakers_data(contract, tokens, stakers=None, account=get_account(
                 staking_reward[9] = list(staking_reward[9])
                 token_staker_data[3][index] = staking_reward
             token_stakers_data[staker] = token_staker_data
-        tokens_stakers_data[token_name] = token_stakers_data
+        tokens_stakers_data[token] = token_stakers_data
     return tokens_stakers_data
 
 
@@ -344,9 +350,9 @@ def main():
     # proxy_savvy_finance_farm.issueStakingRewards({"from": get_account()}).wait(1)
     #####
 
-    print_json(get_tokens_data(proxy_savvy_finance_farm, tokens))
+    print_json(get_tokens_data(proxy_savvy_finance_farm))
     print_json(get_stakers_data(proxy_savvy_finance_farm))
-    print_json(get_tokens_stakers_data(proxy_savvy_finance_farm, tokens))
+    print_json(get_tokens_stakers_data(proxy_savvy_finance_farm))
     print(
         web3.fromWei(
             proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address), "ether"
