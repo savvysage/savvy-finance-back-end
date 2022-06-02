@@ -147,7 +147,7 @@ def set_token_types(contract, types, account=get_account()):
         contract.setTokenTypeNumberToName(index, type, {"from": account}).wait(1)
 
 
-def add_tokens(contract, tokens, account=get_account()):
+def add_tokens(contract, tokens=get_tokens(), account=get_account()):
     for token_name in tokens:
         token = tokens[token_name]
         token_name_2 = token_name.replace("_", "-").upper()
@@ -168,24 +168,38 @@ def add_tokens(contract, tokens, account=get_account()):
             token_admin,
             {"from": account},
         ).wait(1)
-        print("Added " + token_name + " token.")
+        print("Added " + token_name + " token.", "\n\n")
 
 
-def activate_tokens(contract, tokens, account=get_account()):
+def activate_tokens(contract, tokens=get_tokens(), account=get_account()):
     for token_name in tokens:
         token = tokens[token_name]
         contract.activateToken(token, {"from": account}).wait(1)
-        print("Activated " + token_name + " token.")
+        print("Activated " + token_name + " token.", "\n\n")
 
 
-def deactivate_tokens(contract, tokens, account=get_account()):
+def deactivate_tokens(contract, tokens=get_tokens(), account=get_account()):
     for token_name in tokens:
         token = tokens[token_name]
         contract.deactivateToken(token, {"from": account}).wait(1)
-        print("Deactivated " + token_name + " token.")
+        print("Deactivated " + token_name + " token.", "\n\n")
 
 
-def set_tokens_prices(contract, tokens, account=get_account()):
+def enable_tokens_multi_reward(contract, tokens=get_tokens(), account=get_account()):
+    for token_name in tokens:
+        token = tokens[token_name]
+        contract.enableTokenMultiReward(token, {"from": account}).wait(1)
+        print("Enabled " + token_name + " token multi reward.", "\n\n")
+
+
+def disable_tokens_multi_reward(contract, tokens=get_tokens(), account=get_account()):
+    for token_name in tokens:
+        token = tokens[token_name]
+        contract.disableTokenMultiReward(token, {"from": account}).wait(1)
+        print("Disabled " + token_name + " token multi reward.", "\n\n")
+
+
+def set_tokens_prices(contract, tokens=get_tokens(), account=get_account()):
     # tokens = contract.getTokens()
     for token_name in tokens:
         token = tokens[token_name]
@@ -198,7 +212,7 @@ def set_tokens_prices(contract, tokens, account=get_account()):
             "ether",
         )
         contract.setTokenPrice(token, token_price, {"from": account}).wait(1)
-        print("Updated " + token_name + " token price.")
+        print("Updated " + token_name + " token price.", "\n\n")
 
 
 def set_lp_tokens_prices(contract, tokens, account=get_account()):
@@ -210,33 +224,33 @@ def set_lp_tokens_prices(contract, tokens, account=get_account()):
             "ether",
         )
         contract.setTokenPrice(token, token_price, {"from": account}).wait(1)
-        print("Updated " + token_name + " token price.")
+        print("Updated " + token_name + " token price.", "\n\n")
 
 
-def deposit_token(contract, token, amount, account=get_account()):
+def deposit_token(contract, token_contract, amount, account=get_account()):
     amount2 = web3.toWei(amount, "ether")
-    token.approve(contract.address, amount2, {"from": account}).wait(1)
-    contract.depositToken(token.address, amount2, {"from": account}).wait(1)
-    print("Deposited " + str(amount) + " " + token.symbol() + ".")
+    token_contract.approve(contract.address, amount2, {"from": account}).wait(1)
+    contract.depositToken(token_contract.address, amount2, {"from": account}).wait(1)
+    print("Deposited " + str(amount) + " " + token_contract.symbol() + ".", "\n\n")
 
 
-def withdraw_token(contract, token, amount, account=get_account()):
+def withdraw_token(contract, token_contract, amount, account=get_account()):
     amount2 = web3.toWei(amount, "ether")
-    contract.withdrawToken(token.address, amount2, {"from": account}).wait(1)
-    print("Withdrew " + str(amount) + " " + token.symbol() + ".")
+    contract.withdrawToken(token_contract.address, amount2, {"from": account}).wait(1)
+    print("Withdrew " + str(amount) + " " + token_contract.symbol() + ".", "\n\n")
 
 
-def stake_token(contract, token, amount, account=get_account()):
+def stake_token(contract, token_contract, amount, account=get_account()):
     amount2 = web3.toWei(amount, "ether")
-    token.approve(contract.address, amount2, {"from": account}).wait(1)
-    contract.stakeToken(token.address, amount2, {"from": account}).wait(1)
-    print("Staked " + str(amount) + " " + token.symbol() + ".")
+    token_contract.approve(contract.address, amount2, {"from": account}).wait(1)
+    contract.stakeToken(token_contract.address, amount2, {"from": account}).wait(1)
+    print("Staked " + str(amount) + " " + token_contract.symbol() + ".", "\n\n")
 
 
-def unstake_token(contract, token, amount, account=get_account()):
+def unstake_token(contract, token_contract, amount, account=get_account()):
     amount2 = web3.toWei(amount, "ether")
-    contract.unstakeToken(token.address, amount2, {"from": account}).wait(1)
-    print("Unstaked " + str(amount) + " " + token.symbol() + ".")
+    contract.unstakeToken(token_contract.address, amount2, {"from": account}).wait(1)
+    print("Unstaked " + str(amount) + " " + token_contract.symbol() + ".", "\n\n")
 
 
 def copy_to_front_end(src, dest):
@@ -294,9 +308,9 @@ def get_contracts(deploy=None):
 
 
 def main():
-    proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm = get_contracts("all")
-
     # print_json(SavvyFinanceUpgradeable.get_verification_info())
+
+    proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm = get_contracts("all")
 
     #####
     # print(proxy_admin.owner(), get_account().address)
@@ -320,6 +334,13 @@ def main():
     add_tokens(proxy_savvy_finance_farm, tokens)
     activate_tokens(proxy_savvy_finance_farm, tokens)
     set_tokens_prices(proxy_savvy_finance_farm, tokens)
+    enable_tokens_multi_reward(
+        proxy_savvy_finance_farm,
+        {
+            "svf": proxy_savvy_finance.address,
+            "wbnb": get_contract("wbnb_token").address,
+        },
+    )
 
     # add_tokens(proxy_savvy_finance_farm, {"svf": tokens["svf"]})
     # activate_tokens(proxy_savvy_finance_farm, {"svf": tokens["svf"]})
