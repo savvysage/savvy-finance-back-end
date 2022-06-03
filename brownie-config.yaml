@@ -27,7 +27,7 @@ networks:
       vrf_coordinator: "0x747973a5A2a4Ae1D3a8fDF5479f1514F65Db9C31"
       bnb_usd_price_feed: "0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE"
   bsc-main:
-    verify: True
+    verify: False
     key_hash: "0xc251acd21ec4fb7f31bb8868288bfdbaeb4fbfec2df3735ddbd4f7dc8d60103c"
     fee: 200000000000000000 # 0.2
     contracts:
@@ -39,7 +39,7 @@ networks:
       vrf_coordinator: "0x747973a5A2a4Ae1D3a8fDF5479f1514F65Db9C31"
       bnb_usd_price_feed: "0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE"
   bsc-test:
-    verify: True
+    verify: False
     key_hash: "0xcaf3c3727e033261d383b315559476f48034c13b18f8cafed4d871abe5049186"
     fee: 100000000000000000 # 0.1
     contracts:
@@ -51,6 +51,7 @@ networks:
       vrf_coordinator: "0xa555fC018435bef5A13C6c6870a9d4C11DEC329C"
       bnb_usd_price_feed: "0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526"
   mainnet-fork:
+    verify: False
     key_hash: "0x2ed0feb3e7fd2022120aa84fab1945545a9f2ffc9076fd6156fa96eaff4c1311"
     fee: 100000000000000000 # 0.1
     contracts:
@@ -60,7 +61,7 @@ networks:
       link_token: "0x514910771AF9Ca656af840dff83E8264EcF986CA"
       eth_usd_price_feed: "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"
   rinkeby:
-    verify: True
+    verify: False
     key_hash: "0x2ed0feb3e7fd2022120aa84fab1945545a9f2ffc9076fd6156fa96eaff4c1311"
     fee: 100000000000000000 # 0.1
     contracts:

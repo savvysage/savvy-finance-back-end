@@ -11,6 +11,7 @@ from brownie import (
 )
 from scripts.common import (
     print_json,
+    copy_folder,
     get_account,
     get_address,
     get_token_price,
@@ -19,7 +20,7 @@ from scripts.common import (
     get_contract,
     encode_function_data,
 )
-import os, shutil, yaml, json
+import yaml, json
 
 
 def get_tokens():
@@ -38,11 +39,11 @@ def deploy_transparent_upgradeable_proxy(
     proxy_admin, contract, *args, account=get_account()
 ):
     # If we want an intializer function we can add
-    # `initializer=box.store, 1`
+    # `1, initializer=box.store`
     # to simulate the initializer being the `store` function
     # with a `newValue` of 1
     # box_encoded_initializer_function = encode_function_data()
-    # box_encoded_initializer_function = encode_function_data(initializer=box.store, 1)
+    # box_encoded_initializer_function = encode_function_data(1, initializer=box.store)
     encoded_initializer_function = encode_function_data(
         *args, initializer=contract.initialize
     )
@@ -253,20 +254,27 @@ def unstake_token(contract, token_contract, amount, account=get_account()):
     print("Unstaked " + str(amount) + " " + token_contract.symbol() + ".", "\n\n")
 
 
-def copy_to_front_end(src, dest):
-    if os.path.exists(dest):
-        shutil.rmtree(dest)
-    shutil.copytree(src, dest)
+def withdraw_staking_reward(
+    contract, reward_token_contract, amount, account=get_account()
+):
+    amount2 = web3.toWei(amount, "ether")
+    contract.withdrawStakingReward(
+        reward_token_contract.address, amount2, {"from": account}
+    ).wait(1)
+    print(
+        "Withdrew " + str(amount) + " " + reward_token_contract.symbol() + " reward.",
+        "\n\n",
+    )
 
 
 def update_front_end():
-    copy_to_front_end("./build", "./front_end/src/chain-info")
-    with open("brownie-config.yaml", "r") as brownie_config:
+    copy_folder("./build", "../front_end/src/back_end_build")
+    with open("./brownie-config.yaml", "r") as brownie_config:
         config_dict = yaml.load(brownie_config, Loader=yaml.FullLoader)
         with open(
-            "./front_end/src/brownie-config.json", "w"
-        ) as frontend_brownie_config:
-            json.dump(config_dict, frontend_brownie_config)
+            "../front_end/src/brownie-config.json", "w"
+        ) as front_end_brownie_config:
+            json.dump(config_dict, front_end_brownie_config)
     print("Front end updated!")
 
 

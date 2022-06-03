@@ -65,6 +65,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         uint256 stakingBalance;
         address stakingRewardToken;
         TokenStakerRewardDetails[] stakingRewards;
+        uint256 timestampLastRewarded;
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
     }
@@ -521,13 +522,16 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     function withdrawStakingReward(address _reward_token, uint256 _amount)
         public
     {
+        require(tokenExists(_reward_token), "Reward token does not exist.");
         require(_amount > 0, "Amount must be greater than zero.");
         require(
             tokensStakersData[_reward_token][_msgSender()].rewardBalance >=
                 _amount,
-            "Amount is greater than reward token balance."
+            "Insufficient reward balance."
         );
         tokensStakersData[_reward_token][_msgSender()].rewardBalance -= _amount;
+        tokensStakersData[_reward_token][_msgSender()]
+            .timestampLastUpdated = block.timestamp;
         IERC20(_reward_token).transfer(_msgSender(), _amount);
         emit WithdrawStakingReward(_msgSender(), _reward_token, _amount);
     }
@@ -589,8 +593,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         );
         uint256 rate = tokenData.stakingApr / 100;
         uint256 stakingTimestampStarted = tokenStakerData
-            .timestampLastUpdated != 0
-            ? tokenStakerData.timestampLastUpdated
+            .timestampLastRewarded != 0
+            ? tokenStakerData.timestampLastRewarded
             : tokenStakerData.timestampAdded;
         uint256 stakingTimestampEnded = block.timestamp;
         uint256 stakingDurationInSeconds = toWei(
@@ -685,7 +689,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             .rewardBalance += stakingRewardTokenAmount;
         tokensStakersData[tokenStakerData.stakingRewardToken][_staker]
             .timestampLastUpdated = block.timestamp;
-        tokensStakersData[_token][_staker].timestampLastUpdated = block
+        tokensStakersData[_token][_staker].timestampLastRewarded = block
             .timestamp;
 
         TokenStakerRewardDetails memory tokenStakerRewardData;
