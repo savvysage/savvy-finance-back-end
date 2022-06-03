@@ -82,15 +82,25 @@ def get_tokens_data(contract, tokens=None, account=get_account()):
 
     tokens_data = {}
     for token in tokens:
-        token_data = list(contract.getTokenData(token))
-        token_data[4] = float(web3.fromWei(token_data[4], "ether"))
-        token_data[5] = float(web3.fromWei(token_data[5], "ether"))
-        token_data[6] = float(web3.fromWei(token_data[6], "ether"))
-        token_data[7] = float(web3.fromWei(token_data[7], "ether"))
-        token_data[8] = float(web3.fromWei(token_data[8], "ether"))
-        token_data[9] = float(web3.fromWei(token_data[9], "ether"))
-        # token_data[10] = float(web3.fromWei(token_data[10], "ether"))
-        tokens_data[token] = token_data
+        token_data = contract.getTokenData(token)
+        token_data_dict = {
+            "address": token,
+            "isActive": token_data[0],
+            "hasMultiReward": token_data[1],
+            "name": token_data[2],
+            "category": token_data[3],
+            "price": float(web3.fromWei(token_data[4], "ether")),
+            "rewardBalance": float(web3.fromWei(token_data[5], "ether")),
+            "stakingBalance": float(web3.fromWei(token_data[6], "ether")),
+            "stakeFee": float(web3.fromWei(token_data[7], "ether")),
+            "unstakeFee": float(web3.fromWei(token_data[8], "ether")),
+            "stakingApr": float(web3.fromWei(token_data[9], "ether")),
+            "rewardToken": token_data[10],
+            "admin": token_data[11],
+            "timestampAdded": token_data[12],
+            "timestampLastUpdated": token_data[13],
+        }
+        tokens_data[token] = token_data_dict
     return tokens_data
 
 
@@ -100,8 +110,15 @@ def get_stakers_data(contract, stakers=None, account=get_account()):
 
     stakers_data = {}
     for staker in stakers:
-        staker_data = list(contract.getStakerData(staker))
-        stakers_data[staker] = staker_data
+        staker_data = contract.getStakerData(staker)
+        staker_data_dict = {
+            "address": staker,
+            "isActive": staker_data[0],
+            "uniqueTokensStaked": staker_data[1],
+            "timestampAdded": staker_data[2],
+            "timestampLastUpdated": staker_data[3],
+        }
+        stakers_data[staker] = staker_data_dict
     return stakers_data
 
 
@@ -117,20 +134,41 @@ def get_tokens_stakers_data(contract, tokens=None, stakers=None, account=get_acc
     for token in tokens:
         token_stakers_data = {}
         for staker in stakers:
-            token_staker_data = list(contract.getTokenStakerData(token, staker))
-            token_staker_data[0] = float(web3.fromWei(token_staker_data[0], "ether"))
-            token_staker_data[1] = float(web3.fromWei(token_staker_data[1], "ether"))
-            token_staker_data[3] = list(token_staker_data[3])
+            token_staker_data = contract.getTokenStakerData(token, staker)
+            staking_rewards = {}
             for index, staking_reward in enumerate(token_staker_data[3]):
-                staking_reward = list(staking_reward)
-                staking_reward[3] = float(web3.fromWei(staking_reward[3], "ether"))
-                staking_reward[4] = float(web3.fromWei(staking_reward[4], "ether"))
-                staking_reward[6] = float(web3.fromWei(staking_reward[6], "ether"))
-                staking_reward[7] = float(web3.fromWei(staking_reward[7], "ether"))
-                staking_reward[8] = float(web3.fromWei(staking_reward[8], "ether"))
-                staking_reward[9] = list(staking_reward[9])
-                token_staker_data[3][index] = staking_reward
-            token_stakers_data[staker] = token_staker_data
+                staking_reward_dict = {
+                    "id": staking_reward[0],
+                    "staker": staking_reward[1],
+                    "stakedToken": staking_reward[2],
+                    "stakedTokenPrice": float(web3.fromWei(staking_reward[3], "ether")),
+                    "stakedTokenAmount": float(
+                        web3.fromWei(staking_reward[4], "ether")
+                    ),
+                    "rewardToken": staking_reward[5],
+                    "rewardTokenPrice": float(web3.fromWei(staking_reward[6], "ether")),
+                    "rewardTokenAmount": float(
+                        web3.fromWei(staking_reward[7], "ether")
+                    ),
+                    "stakingDurationInSeconds": float(
+                        web3.fromWei(staking_reward[8], "ether")
+                    ),
+                    "actionPerformed": list(staking_reward[9]),
+                    "timestampAdded": staking_reward[10],
+                    "timestampLastUpdated": staking_reward[11],
+                }
+                staking_rewards[index] = staking_reward_dict
+            token_staker_data_dict = {
+                "address": staker,
+                "rewardBalance": float(web3.fromWei(token_staker_data[0], "ether")),
+                "stakingBalance": float(web3.fromWei(token_staker_data[1], "ether")),
+                "stakingRewardToken": token_staker_data[2],
+                "stakingRewards": staking_rewards,
+                "timestampLastRewarded": token_staker_data[4],
+                "timestampAdded": token_staker_data[5],
+                "timestampLastUpdated": token_staker_data[6],
+            }
+            token_stakers_data[staker] = token_staker_data_dict
         tokens_stakers_data[token] = token_stakers_data
     return tokens_stakers_data
 
@@ -143,16 +181,18 @@ def include_in_fees(contract, address, account=get_account()):
     contract.includeInFees(address, {"from": account}).wait(1)
 
 
-def set_token_types(contract, types, account=get_account()):
-    for index, type in enumerate(types):
-        contract.setTokenTypeNumberToName(index, type, {"from": account}).wait(1)
+def set_token_categories(contract, categories, account=get_account()):
+    for index, category in enumerate(categories):
+        contract.setTokenCategoryNumberToName(index, category, {"from": account}).wait(
+            1
+        )
 
 
 def add_tokens(contract, tokens=get_tokens(), account=get_account()):
     for token_name in tokens:
         token = tokens[token_name]
         token_name_2 = token_name.replace("_", "-").upper()
-        token_type = 0 if ("_" not in token_name) else 1
+        token_category = 0 if ("_" not in token_name) else 1
         token_stake_fee = 0
         token_unstake_fee = 0
         token_staking_apr = 0
@@ -161,7 +201,7 @@ def add_tokens(contract, tokens=get_tokens(), account=get_account()):
         contract.addToken(
             token,
             token_name_2,
-            token_type,
+            token_category,
             token_stake_fee,
             token_unstake_fee,
             token_staking_apr,
@@ -338,7 +378,7 @@ def main():
     #####
 
     tokens = {"svf": proxy_savvy_finance.address} | get_tokens()
-    set_token_types(proxy_savvy_finance_farm, ["DEFAULT", "LP"])
+    set_token_categories(proxy_savvy_finance_farm, ["DEFAULT", "LP"])
     add_tokens(proxy_savvy_finance_farm, tokens)
     activate_tokens(proxy_savvy_finance_farm, tokens)
     set_tokens_prices(proxy_savvy_finance_farm, tokens)

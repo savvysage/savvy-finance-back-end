@@ -14,7 +14,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     uint256 public minimumStakingApr;
     uint256 public maximumStakingApr;
     mapping(address => bool) public isExcludedFromFees;
-    mapping(uint256 => string) public tokenTypeNumberToName;
+    mapping(uint256 => string) public tokenCategoryNumberToName;
 
     address[] public tokens;
     struct TokenDetails {
@@ -22,7 +22,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         bool isActive;
         bool hasMultiReward;
         string name;
-        uint256 _type;
+        uint256 category;
         uint256 price;
         uint256 rewardBalance;
         uint256 stakingBalance;
@@ -207,17 +207,17 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         isExcludedFromFees[_address] = false;
     }
 
-    function setTokenTypeNumberToName(uint256 _number, string memory _name)
+    function setTokenCategoryNumberToName(uint256 _number, string memory _name)
         public
         onlyOwner
     {
-        tokenTypeNumberToName[_number] = _name;
+        tokenCategoryNumberToName[_number] = _name;
     }
 
     function addToken(
         address _token,
         string memory _name,
-        uint256 _type,
+        uint256 _category,
         uint256 _stakeFee,
         uint256 _unstakeFee,
         uint256 _stakingApr,
@@ -230,14 +230,14 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         tokens.push(_token);
         // tokensData[_token].index = index;
         tokensData[_token].name = _name;
-        tokensData[_token]._type = _type;
+        tokensData[_token].category = _category;
         tokensData[_token].timestampAdded = block.timestamp;
         setTokenStakingFees(
             _token,
             _stakeFee == 0 ? toWei(1) : _stakeFee,
             _unstakeFee == 0 ? toWei(1) : _unstakeFee
         );
-        setTokenStakingApr(_token, _stakingApr == 0 ? toWei(365) : _stakingApr);
+        setTokenStakingApr(_token, _stakingApr == 0 ? toWei(100) : _stakingApr);
         setTokenRewardToken(
             _token,
             _reward_token == address(0x0) ? _token : _reward_token
@@ -264,9 +264,12 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
-    function setTokenType(address _token, uint256 _type) public onlyOwner {
+    function setTokenCategory(address _token, uint256 _category)
+        public
+        onlyOwner
+    {
         require(tokenExists(_token), "Token does not exist.");
-        tokensData[_token]._type = _type;
+        tokensData[_token].category = _category;
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
