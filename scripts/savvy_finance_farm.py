@@ -386,7 +386,7 @@ def main():
         proxy_savvy_finance_farm,
         {
             "svf": proxy_savvy_finance.address,
-            "wbnb": get_contract("wbnb_token").address,
+            "wbnb_busd": get_contract("wbnb_busd_lp_token").address,
         },
     )
 
