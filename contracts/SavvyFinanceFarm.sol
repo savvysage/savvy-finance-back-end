@@ -90,6 +90,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         uint256 amount
     );
 
+    // event Test(uint256 testVar);
+
     // constructor() {
     //     developmentWallet = _msgSender();
     //     minimumStakingFee = 0;
@@ -458,7 +460,13 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
                 ? stakersData[_msgSender()].timestampAdded = block.timestamp
                 : stakersData[_msgSender()].timestampLastUpdated = block
                 .timestamp;
-            tokensStakersData[_token][_msgSender()].stakingRewardToken = _token;
+
+            if (
+                tokensStakersData[_token][_msgSender()].stakingRewardToken ==
+                address(0x0)
+            )
+                tokensStakersData[_token][_msgSender()]
+                    .stakingRewardToken = tokensData[_token].rewardToken;
         } else {
             issueStakingReward(
                 _token,
@@ -599,8 +607,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             .timestampLastRewarded != 0
             ? tokenStakerData.timestampLastRewarded
             : tokenStakerData.timestampAdded;
-        uint256 stakingTimestampEnded = block.timestamp + (60 * 60 * 24);
-        // uint256 stakingTimestampEnded = block.timestamp;
+        uint256 stakingTimestampEnded = block.timestamp;
         uint256 stakingDurationInSeconds = toWei(
             stakingTimestampEnded - stakingTimestampStarted
         );
@@ -680,9 +687,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         uint256 stakingRewardTokenPrice = tokensData[
             tokenStakerData.stakingRewardToken
         ].price;
-        uint256 stakingRewardTokenAmount = toWei(
-            stakingRewardValue / stakingRewardTokenPrice
-        );
+        uint256 stakingRewardTokenAmount = toWei(stakingRewardValue) /
+            stakingRewardTokenPrice;
         if (stakingRewardTokenAmount <= 0) return;
 
         tokensData[tokenStakerData.stakingRewardToken]

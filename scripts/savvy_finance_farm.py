@@ -12,6 +12,8 @@ from brownie import (
 from scripts.common import (
     print_json,
     copy_folder,
+    to_wei,
+    from_wei,
     get_account,
     get_address,
     get_token_price,
@@ -268,6 +270,21 @@ def set_lp_tokens_prices(contract, tokens, account=get_account()):
         print("Updated " + token_name + " token price.", "\n\n")
 
 
+def set_token_reward_token(
+    contract, token_contract, reward_token_contract, account=get_account()
+):
+    contract.setTokenRewardToken(
+        token_contract.address, reward_token_contract.address, {"from": account}
+    ).wait(1)
+    print(
+        token_contract.symbol()
+        + " token reward token set to "
+        + reward_token_contract.symbol()
+        + ".",
+        "\n\n",
+    )
+
+
 def deposit_token(contract, token_contract, amount, account=get_account()):
     amount2 = web3.toWei(amount, "ether")
     token_contract.approve(contract.address, amount2, {"from": account}).wait(1)
@@ -279,6 +296,21 @@ def withdraw_token(contract, token_contract, amount, account=get_account()):
     amount2 = web3.toWei(amount, "ether")
     contract.withdrawToken(token_contract.address, amount2, {"from": account}).wait(1)
     print("Withdrew " + str(amount) + " " + token_contract.symbol() + ".", "\n\n")
+
+
+def set_staking_reward_token(
+    contract, token_contract, reward_token_contract, account=get_account()
+):
+    contract.setStakingRewardToken(
+        token_contract.address, reward_token_contract.address, {"from": account}
+    ).wait(1)
+    print(
+        token_contract.symbol()
+        + " staking reward token set to "
+        + reward_token_contract.symbol()
+        + ".",
+        "\n\n",
+    )
 
 
 def stake_token(contract, token_contract, amount, account=get_account()):
@@ -331,7 +363,7 @@ def get_contracts(deploy=None):
         )
     elif deploy == "farm":
         proxy_admin = ProxyAdmin[-1]
-        # savvy_finance = SavvyFinanceUpgradeable[-1]
+        savvy_finance = SavvyFinanceUpgradeable[-1]
         savvy_finance_proxy = TransparentUpgradeableProxy[-2]
         savvy_finance_farm = deploy_savvy_finance_farm()
         savvy_finance_farm_proxy = deploy_transparent_upgradeable_proxy(
@@ -339,9 +371,9 @@ def get_contracts(deploy=None):
         )
     else:
         proxy_admin = ProxyAdmin[-1]
-        # savvy_finance = SavvyFinanceUpgradeable[-1]
+        savvy_finance = SavvyFinanceUpgradeable[-1]
         savvy_finance_proxy = TransparentUpgradeableProxy[-2]
-        # savvy_finance_farm = SavvyFinanceFarm[-1]
+        savvy_finance_farm = SavvyFinanceFarm[-1]
         savvy_finance_farm_proxy = TransparentUpgradeableProxy[-1]
 
     proxy_savvy_finance = Contract.from_abi(
@@ -358,7 +390,7 @@ def get_contracts(deploy=None):
 def main():
     # print_json(SavvyFinanceUpgradeable.get_verification_info())
 
-    proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm = get_contracts("all")
+    proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm = get_contracts()
 
     #####
     # print(proxy_admin.owner(), get_account().address)
@@ -378,53 +410,54 @@ def main():
     #####
 
     tokens = {"svf": proxy_savvy_finance.address} | get_tokens()
-    set_token_categories(proxy_savvy_finance_farm, ["DEFAULT", "LP"])
-    add_tokens(proxy_savvy_finance_farm, tokens)
-    activate_tokens(proxy_savvy_finance_farm, tokens)
-    set_tokens_prices(proxy_savvy_finance_farm, tokens)
-    enable_tokens_multi_reward(
-        proxy_savvy_finance_farm,
-        {
-            "svf": proxy_savvy_finance.address,
-            "wbnb_busd": get_contract("wbnb_busd_lp_token").address,
-        },
-    )
+    # set_token_categories(proxy_savvy_finance_farm, ["DEFAULT", "LP"])
+    # add_tokens(proxy_savvy_finance_farm, tokens)
+    # set_token_reward_token(
+    #     proxy_savvy_finance_farm,
+    #     get_contract("wbnb_busd_lp_token"),
+    #     proxy_savvy_finance,
+    # )
+    # activate_tokens(proxy_savvy_finance_farm, tokens)
+    # set_tokens_prices(proxy_savvy_finance_farm, tokens)
+    # enable_tokens_multi_reward(
+    #     proxy_savvy_finance_farm,
+    #     {
+    #         "svf": proxy_savvy_finance.address,
+    #         "wbnb_busd": get_contract("wbnb_busd_lp_token").address,
+    #     },
+    # )
 
     # add_tokens(proxy_savvy_finance_farm, {"svf": tokens["svf"]})
     # activate_tokens(proxy_savvy_finance_farm, {"svf": tokens["svf"]})
     # set_tokens_prices(proxy_savvy_finance_farm, {"svf": tokens["svf"]})
     #####
-    deposit_token(proxy_savvy_finance_farm, proxy_savvy_finance, 20000)
-    withdraw_token(proxy_savvy_finance_farm, proxy_savvy_finance, 10000)
-    exclude_from_fees(proxy_savvy_finance_farm, get_account().address)
-    stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000)
-    unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
-    stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
+    # deposit_token(proxy_savvy_finance_farm, proxy_savvy_finance, 20000)
+    # withdraw_token(proxy_savvy_finance_farm, proxy_savvy_finance, 10000)
+    # exclude_from_fees(proxy_savvy_finance_farm, get_account().address)
+    # stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000)
+    # unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
+    # withdraw_staking_reward(proxy_savvy_finance_farm, proxy_savvy_finance, 2)
+    # stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
+    # withdraw_staking_reward(proxy_savvy_finance_farm, proxy_savvy_finance, 0.5)
 
     #####
+    # staking_reward_value = proxy_savvy_finance_farm.calculateStakerStakingRewardValue(
+    #     get_account().address, tokens["svf"]
+    # )
+    # print(staking_reward_value, from_wei(staking_reward_value))
     # print(
-    #     proxy_savvy_finance_farm.calculateStakerStakingRewardValue(
-    #         get_account().address, tokens["svf"]
+    #     proxy_savvy_finance_farm.issueStakingReward(
+    #         proxy_savvy_finance.address,
+    #         get_account().address,
+    #         ["", ""],
+    #         {"from": get_account()},
     #     )
     # )
-    # print(
-    #     web3.fromWei(
-    #         proxy_savvy_finance_farm.calculateStakerStakingRewardValue(
-    #             get_account().address, tokens["svf"]
-    #         ),
-    #         "ether",
-    #     )
-    # )
-    # proxy_savvy_finance_farm.issueStakingRewards({"from": get_account()}).wait(1)
     # proxy_savvy_finance_farm.issueStakingRewards({"from": get_account()}).wait(1)
     #####
 
     print_json(get_tokens_data(proxy_savvy_finance_farm))
     print_json(get_stakers_data(proxy_savvy_finance_farm))
     print_json(get_tokens_stakers_data(proxy_savvy_finance_farm))
-    print(
-        web3.fromWei(
-            proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address), "ether"
-        )
-    )
-    print(web3.fromWei(proxy_savvy_finance.balanceOf(get_account().address), "ether"))
+    print(from_wei(proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address)))
+    print(from_wei(proxy_savvy_finance.balanceOf(get_account().address)))

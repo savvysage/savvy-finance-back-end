@@ -41,6 +41,14 @@ def copy_folder(src, dest):
     shutil.copytree(src, dest)
 
 
+def to_wei(number):
+    return web3.toWei(number, "ether")
+
+
+def from_wei(number):
+    return web3.fromWei(number, "ether")
+
+
 def get_account(index=0, id=None):
     if network.show_active() in LOCAL_BLOCKCHAIN_ENVIRONMENTS:
         return accounts[index]
