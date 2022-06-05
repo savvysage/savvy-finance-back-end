@@ -102,7 +102,7 @@ def get_tokens_data(contract, tokens=None, account=get_account()):
             "timestampAdded": token_data[12],
             "timestampLastUpdated": token_data[13],
         }
-        tokens_data.append({token: token_data_dict})
+        tokens_data.append(token_data_dict)
     return tokens_data
 
 
@@ -120,7 +120,7 @@ def get_stakers_data(contract, stakers=None, account=get_account()):
             "timestampAdded": staker_data[2],
             "timestampLastUpdated": staker_data[3],
         }
-        stakers_data.append({staker: staker_data_dict})
+        stakers_data.append(staker_data_dict)
     return stakers_data
 
 
@@ -137,8 +137,8 @@ def get_tokens_stakers_data(contract, tokens=None, stakers=None, account=get_acc
         token_stakers_data = {}
         for staker in stakers:
             token_staker_data = contract.getTokenStakerData(token, staker)
-            staking_rewards = {}
-            for index, staking_reward in enumerate(token_staker_data[3]):
+            staking_rewards = []
+            for staking_reward in token_staker_data[3]:
                 staking_reward_dict = {
                     "id": staking_reward[0],
                     "staker": staking_reward[1],
@@ -159,9 +159,8 @@ def get_tokens_stakers_data(contract, tokens=None, stakers=None, account=get_acc
                     "timestampAdded": staking_reward[10],
                     "timestampLastUpdated": staking_reward[11],
                 }
-                staking_rewards[index] = staking_reward_dict
+                staking_rewards.append(staking_reward_dict)
             token_staker_data_dict = {
-                "address": staker,
                 "rewardBalance": float(web3.fromWei(token_staker_data[0], "ether")),
                 "stakingBalance": float(web3.fromWei(token_staker_data[1], "ether")),
                 "stakingRewardToken": token_staker_data[2],
@@ -342,10 +341,9 @@ def withdraw_staking_reward(
 def generate_front_end_tokens_data(contract):
     tokens_data = get_tokens_data(contract)
     for token_data in tokens_data:
-        key = next(iter(token_data))
-        category = token_data[key]["category"]
-        name = token_data[key]["name"].lower()
-        token_data[key]["icon"] = (
+        category = token_data["category"]
+        name = token_data["name"].lower()
+        token_data["icon"] = (
             ["/savvy-finance/icons/{}.png".format(name)]
             if category == 0
             else [
@@ -353,8 +351,9 @@ def generate_front_end_tokens_data(contract):
                 "/savvy-finance/icons/{}.png".format(name.split("-")[1]),
             ]
         )
-        token_data[key]["stakerData"] = {
+        token_data["stakerData"] = {
             "walletBalance": 0,
+            "rewardBalance": 0,
             "stakingBalance": 0,
             "stakingRewardToken": "0x0000000000000000000000000000000000000000",
         }
@@ -481,8 +480,8 @@ def main():
     # proxy_savvy_finance_farm.issueStakingRewards({"from": get_account()}).wait(1)
     #####
 
-    # print_json(get_tokens_data(proxy_savvy_finance_farm))
-    # print_json(get_stakers_data(proxy_savvy_finance_farm))
-    # print_json(get_tokens_stakers_data(proxy_savvy_finance_farm))
-    # print(from_wei(proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address)))
-    # print(from_wei(proxy_savvy_finance.balanceOf(get_account().address)))
+    print_json(get_tokens_data(proxy_savvy_finance_farm))
+    print_json(get_stakers_data(proxy_savvy_finance_farm))
+    print_json(get_tokens_stakers_data(proxy_savvy_finance_farm))
+    print(from_wei(proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address)))
+    print(from_wei(proxy_savvy_finance.balanceOf(get_account().address)))
