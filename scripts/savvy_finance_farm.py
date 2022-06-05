@@ -355,7 +355,26 @@ def generate_front_end_tokens_data(contract):
             "walletBalance": 0,
             "rewardBalance": 0,
             "stakingBalance": 0,
-            "stakingRewardToken": "0x0000000000000000000000000000000000000000",
+            "stakingRewardToken": get_address("zero"),
+            "stakingRewards": [
+                # {
+                #     "id": 0,
+                #     "staker": get_address("zero"),
+                #     "stakedToken": get_address("zero"),
+                #     "stakedTokenPrice": 0,
+                #     "stakedTokenAmount": 0,
+                #     "rewardToken": get_address("zero"),
+                #     "rewardTokenPrice": 0,
+                #     "rewardTokenAmount": 0,
+                #     "stakingDurationInSeconds": 0,
+                #     "actionPerformed": ["", ""],
+                #     "timestampAdded": 0,
+                #     "timestampLastUpdated": 0,
+                # }
+            ],
+            "timestampLastRewarded": 0,
+            "timestampAdded": 0,
+            "timestampLastUpdated": 0,
         }
     with open("./tokens.json", "w") as front_end_tokens_data:
         json.dump(tokens_data, front_end_tokens_data)
@@ -414,7 +433,7 @@ def main():
     # print_json(SavvyFinanceUpgradeable.get_verification_info())
 
     proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm = get_contracts()
-    # generate_front_end_tokens_data(proxy_savvy_finance_farm)
+    generate_front_end_tokens_data(proxy_savvy_finance_farm)
 
     #####
     # print(proxy_admin.owner(), get_account().address)
