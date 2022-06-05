@@ -22,7 +22,7 @@ from scripts.common import (
     get_contract,
     encode_function_data,
 )
-import yaml, json
+import shutil, yaml, json
 
 
 def get_tokens():
@@ -82,7 +82,7 @@ def get_tokens_data(contract, tokens=None, account=get_account()):
     else:
         tokens = list(tokens.values())
 
-    tokens_data = {}
+    tokens_data = []
     for token in tokens:
         token_data = contract.getTokenData(token)
         token_data_dict = {
@@ -102,7 +102,7 @@ def get_tokens_data(contract, tokens=None, account=get_account()):
             "timestampAdded": token_data[12],
             "timestampLastUpdated": token_data[13],
         }
-        tokens_data[token] = token_data_dict
+        tokens_data.append({token: token_data_dict})
     return tokens_data
 
 
@@ -110,7 +110,7 @@ def get_stakers_data(contract, stakers=None, account=get_account()):
     if not stakers:
         stakers = list(contract.getStakers())
 
-    stakers_data = {}
+    stakers_data = []
     for staker in stakers:
         staker_data = contract.getStakerData(staker)
         staker_data_dict = {
@@ -120,7 +120,7 @@ def get_stakers_data(contract, stakers=None, account=get_account()):
             "timestampAdded": staker_data[2],
             "timestampLastUpdated": staker_data[3],
         }
-        stakers_data[staker] = staker_data_dict
+        stakers_data.append({staker: staker_data_dict})
     return stakers_data
 
 
@@ -132,7 +132,7 @@ def get_tokens_stakers_data(contract, tokens=None, stakers=None, account=get_acc
     if not stakers:
         stakers = list(contract.getStakers())
 
-    tokens_stakers_data = {}
+    tokens_stakers_data = []
     for token in tokens:
         token_stakers_data = {}
         for staker in stakers:
@@ -171,7 +171,7 @@ def get_tokens_stakers_data(contract, tokens=None, stakers=None, account=get_acc
                 "timestampLastUpdated": token_staker_data[6],
             }
             token_stakers_data[staker] = token_staker_data_dict
-        tokens_stakers_data[token] = token_stakers_data
+        tokens_stakers_data.append({token: token_stakers_data})
     return tokens_stakers_data
 
 
@@ -339,6 +339,29 @@ def withdraw_staking_reward(
     )
 
 
+def generate_front_end_tokens_data(contract):
+    tokens_data = get_tokens_data(contract)
+    for token_data in tokens_data:
+        key = next(iter(token_data))
+        category = token_data[key]["category"]
+        name = token_data[key]["name"].lower()
+        token_data[key]["icon"] = (
+            ["/savvy-finance/icons/{}.png".format(name)]
+            if category == 0
+            else [
+                "/savvy-finance/icons/{}.png".format(name.split("-")[0]),
+                "/savvy-finance/icons/{}.png".format(name.split("-")[1]),
+            ]
+        )
+        token_data[key]["stakerData"] = {
+            "walletBalance": 0,
+            "stakingBalance": 0,
+            "stakingRewardToken": "0x0000000000000000000000000000000000000000",
+        }
+    with open("./tokens.json", "w") as front_end_tokens_data:
+        json.dump(tokens_data, front_end_tokens_data)
+
+
 def update_front_end():
     copy_folder("./build", "../front_end/src/back_end_build")
     with open("./brownie-config.yaml", "r") as brownie_config:
@@ -347,6 +370,7 @@ def update_front_end():
             "../front_end/src/brownie-config.json", "w"
         ) as front_end_brownie_config:
             json.dump(config_dict, front_end_brownie_config)
+    shutil.copyfile("./tokens.json", "../front_end/src/tokens.json")
     print("Front end updated!")
 
 
@@ -391,6 +415,7 @@ def main():
     # print_json(SavvyFinanceUpgradeable.get_verification_info())
 
     proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm = get_contracts()
+    # generate_front_end_tokens_data(proxy_savvy_finance_farm)
 
     #####
     # print(proxy_admin.owner(), get_account().address)
@@ -456,8 +481,8 @@ def main():
     # proxy_savvy_finance_farm.issueStakingRewards({"from": get_account()}).wait(1)
     #####
 
-    print_json(get_tokens_data(proxy_savvy_finance_farm))
-    print_json(get_stakers_data(proxy_savvy_finance_farm))
-    print_json(get_tokens_stakers_data(proxy_savvy_finance_farm))
-    print(from_wei(proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address)))
-    print(from_wei(proxy_savvy_finance.balanceOf(get_account().address)))
+    # print_json(get_tokens_data(proxy_savvy_finance_farm))
+    # print_json(get_stakers_data(proxy_savvy_finance_farm))
+    # print_json(get_tokens_stakers_data(proxy_savvy_finance_farm))
+    # print(from_wei(proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address)))
+    # print(from_wei(proxy_savvy_finance.balanceOf(get_account().address)))
