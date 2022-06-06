@@ -433,7 +433,6 @@ def main():
     # print_json(SavvyFinanceUpgradeable.get_verification_info())
 
     proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm = get_contracts()
-    generate_front_end_tokens_data(proxy_savvy_finance_farm)
 
     #####
     # print(proxy_admin.owner(), get_account().address)
@@ -504,3 +503,7 @@ def main():
     print_json(get_tokens_stakers_data(proxy_savvy_finance_farm))
     print(from_wei(proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address)))
     print(from_wei(proxy_savvy_finance.balanceOf(get_account().address)))
+
+    #####
+    generate_front_end_tokens_data(proxy_savvy_finance_farm)
+    #####
