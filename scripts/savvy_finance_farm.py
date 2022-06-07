@@ -431,6 +431,8 @@ def get_contracts(deploy=None):
 
 def main():
     # print_json(SavvyFinanceUpgradeable.get_verification_info())
+    # contract = SavvyFinanceUpgradeable.at("0x115311a96f9D0Fad9369A2f549587Bb36e007a79")
+    # SavvyFinanceUpgradeable.publish_source(contract)
 
     proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm = get_contracts()
 
