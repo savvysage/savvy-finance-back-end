@@ -8,27 +8,41 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 contract SavvyFinanceFarm is Ownable, AccessControl {
     address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
-    address public developmentWallet;
-    uint256 public minimumStakingFee;
-    uint256 public maximumStakingFee;
-    uint256 public minimumStakingApr;
-    uint256 public maximumStakingApr;
     mapping(address => bool) public isExcludedFromFees;
     mapping(uint256 => string) public tokenCategoryNumberToName;
 
+    struct ConfigDetails {
+        address developmentWallet;
+        uint256 minimumTokenNameLength;
+        uint256 maximumTokenNameLength;
+        uint256 minimumStakingFee;
+        uint256 maximumStakingFee;
+        uint256 defaultStakingFee;
+        uint256 minimumStakingApr;
+        uint256 maximumStakingApr;
+        uint256 defaultStakingApr;
+    }
+    ConfigDetails public configData;
+
     address[] public tokens;
+    struct TokenStakingConfigDetails {
+        uint256 stakeFee;
+        uint256 unstakeFee;
+        uint256 adminStakeFee;
+        uint256 adminUnstakeFee;
+        uint256 stakingApr;
+    }
     struct TokenDetails {
         // uint256 index;
         bool isActive;
+        bool isVerified;
         bool hasMultiReward;
         string name;
         uint256 category;
         uint256 price;
         uint256 rewardBalance;
         uint256 stakingBalance;
-        uint256 stakeFee;
-        uint256 unstakeFee;
-        uint256 stakingApr;
+        TokenStakingConfigDetails stakingConfigData;
         address rewardToken;
         address admin;
         uint256 timestampAdded;
@@ -93,20 +107,24 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     // event Test(uint256 testVar);
 
     // constructor() {
-    //     developmentWallet = _msgSender();
-    //     minimumStakingFee = 0;
-    //     maximumStakingFee = toWei(10);
-    //     minimumStakingApr = toWei(50);
-    //     maximumStakingApr = toWei(1000);
+    //     configData.developmentWallet = _msgSender();
+    //     configData.minimumStakingFee = 0;
+    //     configData.maximumStakingFee = toWei(10);
+    //     configData.defaultStakingFee = toWei(1);
+    //     configData.minimumStakingApr = toWei(50);
+    //     configData.maximumStakingApr = toWei(1000);
+    //     configData.defaultStakingApr = toWei(100);
     //     _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
     // }
 
     function initialize() external {
-        developmentWallet = _msgSender();
-        minimumStakingFee = 0;
-        maximumStakingFee = toWei(10);
-        minimumStakingApr = toWei(50);
-        maximumStakingApr = toWei(1000);
+        configData.developmentWallet = _msgSender();
+        configData.minimumStakingFee = 0;
+        configData.maximumStakingFee = toWei(10);
+        configData.defaultStakingFee = toWei(1);
+        configData.minimumStakingApr = toWei(50);
+        configData.maximumStakingApr = toWei(1000);
+        configData.defaultStakingApr = toWei(100);
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _transferOwnership(_msgSender());
     }
@@ -182,23 +200,23 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     }
 
     function setDevelopmentWallet(address _developmentWallet) public onlyOwner {
-        developmentWallet = _developmentWallet;
+        configData.developmentWallet = _developmentWallet;
     }
 
-    function setStakingFeeDetails(
+    function setStakingFeeConfig(
         uint256 _minimumStakingFee,
         uint256 _maximumStakingFee
     ) public onlyOwner {
-        minimumStakingFee = _minimumStakingFee;
-        maximumStakingFee = _maximumStakingFee;
+        configData.minimumStakingFee = _minimumStakingFee;
+        configData.maximumStakingFee = _maximumStakingFee;
     }
 
-    function setStakingAprDetails(
+    function setStakingAprConfig(
         uint256 _minimumStakingApr,
         uint256 _maximumStakingApr
     ) public onlyOwner {
-        minimumStakingApr = _minimumStakingApr;
-        maximumStakingApr = _maximumStakingApr;
+        configData.minimumStakingApr = _minimumStakingApr;
+        configData.maximumStakingApr = _maximumStakingApr;
     }
 
     function excludeFromFees(address _address) public onlyOwner {
@@ -220,31 +238,50 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         address _token,
         string memory _name,
         uint256 _category,
-        uint256 _stakeFee,
-        uint256 _unstakeFee,
+        uint256 _adminStakeFee,
+        uint256 _adminUnstakeFee,
         uint256 _stakingApr,
-        address _reward_token,
-        address _admin
-    ) public onlyOwner {
+        address _reward_token
+    ) public {
         require(!tokenExists(_token), "Token already exists.");
+        _setupRole(toRole(_token), owner());
         _setupRole(toRole(_token), _msgSender());
-        uint256 index = tokens.length;
+        // uint256 index = tokens.length;
         tokens.push(_token);
         // tokensData[_token].index = index;
         tokensData[_token].name = _name;
         tokensData[_token].category = _category;
+        tokensData[_token].stakingConfigData.stakeFee = configData
+            .defaultStakingFee;
+        tokensData[_token].stakingConfigData.unstakeFee = configData
+            .defaultStakingFee;
+        tokensData[_token].admin = _msgSender();
         tokensData[_token].timestampAdded = block.timestamp;
-        setTokenStakingFees(
+        setTokenAdminStakingFees(
             _token,
-            _stakeFee == 0 ? toWei(1) : _stakeFee,
-            _unstakeFee == 0 ? toWei(1) : _unstakeFee
+            _adminStakeFee == 0 ? configData.defaultStakingFee : _adminStakeFee,
+            _adminUnstakeFee == 0
+                ? configData.defaultStakingFee
+                : _adminUnstakeFee
         );
-        setTokenStakingApr(_token, _stakingApr == 0 ? toWei(100) : _stakingApr);
+        setTokenStakingApr(
+            _token,
+            _stakingApr == 0 ? configData.defaultStakingApr : _stakingApr
+        );
         setTokenRewardToken(
             _token,
             _reward_token == address(0x0) ? _token : _reward_token
         );
-        setTokenAdmin(_token, _admin == address(0x0) ? _msgSender() : _admin);
+    }
+
+    function verifyToken(address _token) public onlyOwner {
+        require(tokenExists(_token), "Token does not exist.");
+        tokensData[_token].isVerified = true;
+    }
+
+    function unverifyToken(address _token) public onlyOwner {
+        require(tokenExists(_token), "Token does not exist.");
+        tokensData[_token].isVerified = false;
     }
 
     function activateToken(address _token) public onlyOwner {
@@ -295,50 +332,68 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         uint256 _stakeFee,
         uint256 _unstakeFee
     ) public onlyOwner {
-        setTokenStakeFee(_token, _stakeFee);
-        setTokenUnstakeFee(_token, _unstakeFee);
+        setTokenStakeFee(_token, _stakeFee, false);
+        setTokenUnstakeFee(_token, _unstakeFee, false);
     }
 
-    function setTokenStakeFee(address _token, uint256 _stakeFee)
-        public
-        onlyOwner
-    {
+    function setTokenAdminStakingFees(
+        address _token,
+        uint256 _stakeFee,
+        uint256 _unstakeFee
+    ) public onlyRole(toRole(_token)) {
+        setTokenStakeFee(_token, _stakeFee, true);
+        setTokenUnstakeFee(_token, _unstakeFee, true);
+    }
+
+    function setTokenStakeFee(
+        address _token,
+        uint256 _stakeFee,
+        bool forAdmin
+    ) internal {
         require(tokenExists(_token), "Token does not exist.");
         require(
-            _stakeFee >= minimumStakingFee && _stakeFee <= maximumStakingFee,
+            _stakeFee >= configData.minimumStakingFee &&
+                _stakeFee <= configData.maximumStakingFee,
             string(
                 abi.encodePacked(
                     "Stake fee must be between",
-                    fromWei(minimumStakingFee),
+                    fromWei(configData.minimumStakingFee),
                     "and",
-                    fromWei(maximumStakingFee),
+                    fromWei(configData.maximumStakingFee),
                     "."
                 )
             )
         );
-        tokensData[_token].stakeFee = _stakeFee;
+
+        if (forAdmin)
+            tokensData[_token].stakingConfigData.adminStakeFee = _stakeFee;
+        else tokensData[_token].stakingConfigData.stakeFee = _stakeFee;
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
-    function setTokenUnstakeFee(address _token, uint256 _unstakeFee)
-        public
-        onlyOwner
-    {
+    function setTokenUnstakeFee(
+        address _token,
+        uint256 _unstakeFee,
+        bool forAdmin
+    ) internal {
         require(tokenExists(_token), "Token does not exist.");
         require(
-            _unstakeFee >= minimumStakingFee &&
-                _unstakeFee <= maximumStakingFee,
+            _unstakeFee >= configData.minimumStakingFee &&
+                _unstakeFee <= configData.maximumStakingFee,
             string(
                 abi.encodePacked(
                     "Unstake fee must be between",
-                    fromWei(minimumStakingFee),
+                    fromWei(configData.minimumStakingFee),
                     "and",
-                    fromWei(maximumStakingFee),
+                    fromWei(configData.maximumStakingFee),
                     "."
                 )
             )
         );
-        tokensData[_token].unstakeFee = _unstakeFee;
+
+        if (forAdmin)
+            tokensData[_token].stakingConfigData.adminUnstakeFee = _unstakeFee;
+        else tokensData[_token].stakingConfigData.unstakeFee = _unstakeFee;
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
@@ -348,19 +403,19 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     {
         require(tokenExists(_token), "Token does not exist.");
         require(
-            _stakingApr >= minimumStakingApr &&
-                _stakingApr <= maximumStakingApr,
+            _stakingApr >= configData.minimumStakingApr &&
+                _stakingApr <= configData.maximumStakingApr,
             string(
                 abi.encodePacked(
                     "Staking APR must be between",
-                    fromWei(minimumStakingApr),
+                    fromWei(configData.minimumStakingApr),
                     "and",
-                    fromWei(maximumStakingApr),
+                    fromWei(configData.maximumStakingApr),
                     "."
                 )
             )
         );
-        tokensData[_token].stakingApr = _stakingApr;
+        tokensData[_token].stakingConfigData.stakingApr = _stakingApr;
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
@@ -421,7 +476,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
 
     function addStaker(address _staker) internal {
         require(!stakerExists(_staker), "Staker already exists.");
-        uint256 index = stakers.length;
+        // uint256 index = stakers.length;
         stakers.push(_staker);
         // stakersData[_staker].index = index;
         stakersData[_staker].timestampAdded = block.timestamp;
@@ -435,17 +490,27 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             "Insufficient wallet balance."
         );
 
-        uint256 stakeFee = (_amount / toWei(100)) * tokensData[_token].stakeFee;
+        uint256 stakeFeeAmount = (_amount / toWei(100)) *
+            tokensData[_token].stakingConfigData.stakeFee;
+        uint256 adminStakeFeeAmount = (_amount / toWei(100)) *
+            tokensData[_token].stakingConfigData.adminStakeFee;
+        uint256 totalStakeFeeAmount = stakeFeeAmount + adminStakeFeeAmount;
+
         uint256 stakeAmount;
-        if (stakeFee == 0 || isExcludedFromFees[_msgSender()]) {
+        if (totalStakeFeeAmount == 0 || isExcludedFromFees[_msgSender()]) {
             stakeAmount = _amount;
         } else {
             IERC20(_token).transferFrom(
                 _msgSender(),
-                developmentWallet,
-                stakeFee
+                configData.developmentWallet,
+                stakeFeeAmount
             );
-            stakeAmount = _amount - stakeFee;
+            IERC20(_token).transferFrom(
+                _msgSender(),
+                tokensData[_token].admin,
+                adminStakeFeeAmount
+            );
+            stakeAmount = _amount - totalStakeFeeAmount;
         }
         IERC20(_token).transferFrom(_msgSender(), address(this), stakeAmount);
 
@@ -517,14 +582,26 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         tokensData[_token].stakingBalance -= _amount;
         tokensData[_token].timestampLastUpdated = block.timestamp;
 
-        uint256 unstakeFee = (_amount / toWei(100)) *
-            tokensData[_token].unstakeFee;
+        uint256 unstakeFeeAmount = (_amount / toWei(100)) *
+            tokensData[_token].stakingConfigData.unstakeFee;
+        uint256 adminUnstakeFeeAmount = (_amount / toWei(100)) *
+            tokensData[_token].stakingConfigData.adminUnstakeFee;
+        uint256 totalUnstakeFeeAmount = unstakeFeeAmount +
+            adminUnstakeFeeAmount;
+
         uint256 unstakeAmount;
-        if (unstakeFee == 0 || isExcludedFromFees[_msgSender()]) {
+        if (totalUnstakeFeeAmount == 0 || isExcludedFromFees[_msgSender()]) {
             unstakeAmount = _amount;
         } else {
-            IERC20(_token).transfer(developmentWallet, unstakeFee);
-            unstakeAmount = _amount - unstakeFee;
+            IERC20(_token).transfer(
+                configData.developmentWallet,
+                unstakeFeeAmount
+            );
+            IERC20(_token).transfer(
+                tokensData[_token].admin,
+                adminUnstakeFeeAmount
+            );
+            unstakeAmount = _amount - totalUnstakeFeeAmount;
         }
         IERC20(_token).transfer(_msgSender(), unstakeAmount);
         emit Unstake(_msgSender(), _token, unstakeAmount);
@@ -602,7 +679,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         uint256 stakingValue = fromWei(
             tokenStakerData.stakingBalance * tokenData.price
         );
-        uint256 rate = tokenData.stakingApr / 100;
+        uint256 rate = tokenData.stakingConfigData.stakingApr / 100;
         uint256 stakingTimestampStarted = tokenStakerData
             .timestampLastRewarded != 0
             ? tokenStakerData.timestampLastRewarded

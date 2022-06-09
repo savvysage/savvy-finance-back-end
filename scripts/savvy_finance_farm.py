@@ -447,8 +447,8 @@ def main():
     #     proxy_admin.getProxyImplementation(savvy_finance_farm_proxy),
     #     savvy_finance_farm.address,
     # )
-    # print(savvy_finance_farm.developmentWallet())
-    # print(proxy_savvy_finance_farm.developmentWallet())
+    # print(savvy_finance_farm.configData()[0])
+    # print(proxy_savvy_finance_farm.configData()[0])
     # print(savvy_finance_farm.toRole(get_tokens()["wbnb"]))
     # print(proxy_savvy_finance_farm.toRole(get_tokens()["wbnb"]))
     #####
