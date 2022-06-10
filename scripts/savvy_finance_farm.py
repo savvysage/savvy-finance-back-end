@@ -88,19 +88,22 @@ def get_tokens_data(contract, tokens=None, account=get_account()):
         token_data_dict = {
             "address": token,
             "isActive": token_data[0],
-            "hasMultiReward": token_data[1],
-            "name": token_data[2],
-            "category": token_data[3],
-            "price": float(web3.fromWei(token_data[4], "ether")),
-            "rewardBalance": float(web3.fromWei(token_data[5], "ether")),
-            "stakingBalance": float(web3.fromWei(token_data[6], "ether")),
-            "stakeFee": float(web3.fromWei(token_data[7], "ether")),
-            "unstakeFee": float(web3.fromWei(token_data[8], "ether")),
-            "stakingApr": float(web3.fromWei(token_data[9], "ether")),
-            "rewardToken": token_data[10],
-            "admin": token_data[11],
-            "timestampAdded": token_data[12],
-            "timestampLastUpdated": token_data[13],
+            "isVerified": token_data[1],
+            "hasMultiReward": token_data[2],
+            "name": token_data[3],
+            "category": token_data[4],
+            "price": float(web3.fromWei(token_data[5], "ether")),
+            "rewardBalance": float(web3.fromWei(token_data[6], "ether")),
+            "stakingBalance": float(web3.fromWei(token_data[7], "ether")),
+            "stakingApr": float(web3.fromWei(token_data[8][0], "ether")),
+            "stakeFee": float(web3.fromWei(token_data[8][1], "ether")),
+            "unstakeFee": float(web3.fromWei(token_data[8][2], "ether")),
+            "adminStakeFee": float(web3.fromWei(token_data[8][3], "ether")),
+            "adminUnstakeFee": float(web3.fromWei(token_data[8][4], "ether")),
+            "rewardToken": token_data[9],
+            "admin": token_data[10],
+            "timestampAdded": token_data[11],
+            "timestampLastUpdated": token_data[12],
         }
         tokens_data.append(token_data_dict)
     return tokens_data
@@ -142,22 +145,23 @@ def get_tokens_stakers_data(contract, tokens=None, stakers=None, account=get_acc
                 staking_reward_dict = {
                     "id": staking_reward[0],
                     "staker": staking_reward[1],
-                    "stakedToken": staking_reward[2],
-                    "stakedTokenPrice": float(web3.fromWei(staking_reward[3], "ether")),
-                    "stakedTokenAmount": float(
+                    "rewardToken": staking_reward[2],
+                    "rewardTokenPrice": float(web3.fromWei(staking_reward[3], "ether")),
+                    "rewardTokenAmount": float(
                         web3.fromWei(staking_reward[4], "ether")
                     ),
-                    "rewardToken": staking_reward[5],
-                    "rewardTokenPrice": float(web3.fromWei(staking_reward[6], "ether")),
-                    "rewardTokenAmount": float(
+                    "stakedToken": staking_reward[5],
+                    "stakedTokenPrice": float(web3.fromWei(staking_reward[6], "ether")),
+                    "stakedTokenAmount": float(
                         web3.fromWei(staking_reward[7], "ether")
                     ),
+                    "stakingApr": float(web3.fromWei(staking_reward[8], "ether")),
                     "stakingDurationInSeconds": float(
-                        web3.fromWei(staking_reward[8], "ether")
+                        web3.fromWei(staking_reward[9], "ether")
                     ),
-                    "actionPerformed": list(staking_reward[9]),
-                    "timestampAdded": staking_reward[10],
-                    "timestampLastUpdated": staking_reward[11],
+                    "triggeredBy": list(staking_reward[10]),
+                    "timestampAdded": staking_reward[11],
+                    "timestampLastUpdated": staking_reward[12],
                 }
                 staking_rewards.append(staking_reward_dict)
             token_staker_data_dict = {
@@ -194,20 +198,18 @@ def add_tokens(contract, tokens=get_tokens(), account=get_account()):
         token = tokens[token_name]
         token_name_2 = token_name.replace("_", "-").upper()
         token_category = 0 if ("_" not in token_name) else 1
-        token_stake_fee = 0
-        token_unstake_fee = 0
-        token_staking_apr = 0
+        token_admin_stake_fee = to_wei(1)
+        token_admin_unstake_fee = to_wei(1)
+        token_staking_apr = to_wei(100)
         token_reward_token = get_address("zero")
-        token_admin = get_address("zero")
         contract.addToken(
             token,
             token_name_2,
             token_category,
-            token_stake_fee,
-            token_unstake_fee,
+            token_admin_stake_fee,
+            token_admin_unstake_fee,
             token_staking_apr,
             token_reward_token,
-            token_admin,
             {"from": account},
         ).wait(1)
         print("Added " + token_name + " token.", "\n\n")
@@ -360,14 +362,15 @@ def generate_front_end_tokens_data(contract):
                 # {
                 #     "id": 0,
                 #     "staker": get_address("zero"),
-                #     "stakedToken": get_address("zero"),
-                #     "stakedTokenPrice": 0,
-                #     "stakedTokenAmount": 0,
                 #     "rewardToken": get_address("zero"),
                 #     "rewardTokenPrice": 0,
                 #     "rewardTokenAmount": 0,
+                #     "stakedToken": get_address("zero"),
+                #     "stakedTokenPrice": 0,
+                #     "stakedTokenAmount": 0,
+                #     "stakingApr": 0,
                 #     "stakingDurationInSeconds": 0,
-                #     "actionPerformed": ["", ""],
+                #     "triggeredBy": ["", ""],
                 #     "timestampAdded": 0,
                 #     "timestampLastUpdated": 0,
                 # }
