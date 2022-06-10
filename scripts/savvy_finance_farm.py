@@ -230,6 +230,18 @@ def add_tokens(contract, tokens=get_tokens(), account=get_account()):
         print("Added " + token_name + " token.", "\n\n")
 
 
+def exclude_from_admin_fees(contract, token_contract, address, account=get_account()):
+    contract.excludeFromAdminFees(
+        token_contract.address, address, {"from": account}
+    ).wait(1)
+
+
+def include_in_admin_fees(contract, token_contract, address, account=get_account()):
+    contract.includeInAdminFees(
+        token_contract.address, address, {"from": account}
+    ).wait(1)
+
+
 def activate_tokens(contract, tokens=get_tokens(), account=get_account()):
     for token_name in tokens:
         token = tokens[token_name]
@@ -242,6 +254,20 @@ def deactivate_tokens(contract, tokens=get_tokens(), account=get_account()):
         token = tokens[token_name]
         contract.deactivateToken(token, {"from": account}).wait(1)
         print("Deactivated " + token_name + " token.", "\n\n")
+
+
+def verify_tokens(contract, tokens=get_tokens(), account=get_account()):
+    for token_name in tokens:
+        token = tokens[token_name]
+        contract.verifyToken(token, {"from": account}).wait(1)
+        print("Verified " + token_name + " token.", "\n\n")
+
+
+def unverify_tokens(contract, tokens=get_tokens(), account=get_account()):
+    for token_name in tokens:
+        token = tokens[token_name]
+        contract.unverifyToken(token, {"from": account}).wait(1)
+        print("Unverified " + token_name + " token.", "\n\n")
 
 
 def enable_tokens_multi_token_rewards(
@@ -477,14 +503,18 @@ def main():
 
     tokens = {"svf": proxy_savvy_finance.address} | get_tokens()
 
-    account = get_account(1)
+    account1 = get_account(1)
+    account2 = get_account(2)
+    erc20_transfer_token(proxy_savvy_finance, account1.address, 10000)
+    erc20_transfer_token(proxy_savvy_finance, account2.address, 10000)
+
     set_token_categories(proxy_savvy_finance_farm, ["DEFAULT", "LP"])
-    add_tokens(proxy_savvy_finance_farm, tokens, account)
+    add_tokens(proxy_savvy_finance_farm, tokens, account1)
     set_token_reward_token(
         proxy_savvy_finance_farm,
         get_contract("wbnb_busd_lp_token"),
         proxy_savvy_finance,
-        account,
+        account1,
     )
     activate_tokens(proxy_savvy_finance_farm, tokens)
     set_tokens_prices(proxy_savvy_finance_farm, tokens)
@@ -495,17 +525,24 @@ def main():
     #         "wbnb_busd": get_contract("wbnb_busd_lp_token").address,
     #     },
     # )
-    erc20_transfer_token(proxy_savvy_finance, account.address, 10000)
 
     # add_tokens(proxy_savvy_finance_farm, {"svf": tokens["svf"]})
     # activate_tokens(proxy_savvy_finance_farm, {"svf": tokens["svf"]})
     # set_tokens_prices(proxy_savvy_finance_farm, {"svf": tokens["svf"]})
     #####
-    deposit_token(proxy_savvy_finance_farm, proxy_savvy_finance, 2000, account)
-    withdraw_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account)
+    deposit_token(proxy_savvy_finance_farm, proxy_savvy_finance, 2000, account1)
+    withdraw_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account1)
     # exclude_from_fees(proxy_savvy_finance_farm, get_account().address)
-    # stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000)
-    # unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
+    # exclude_from_admin_fees(
+    #     proxy_savvy_finance_farm,
+    #     proxy_savvy_finance,
+    #     get_account().address,
+    #     account,
+    # )
+    stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account2)
+    stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account2)
+    unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account2)
+    unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500, account2)
     # withdraw_staking_reward(proxy_savvy_finance_farm, proxy_savvy_finance, 2)
     # stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
     # withdraw_staking_reward(proxy_savvy_finance_farm, proxy_savvy_finance, 0.5)
@@ -530,7 +567,8 @@ def main():
     print_json(get_stakers_data(proxy_savvy_finance_farm))
     print_json(get_tokens_stakers_data(proxy_savvy_finance_farm))
     print(from_wei(proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address)))
-    print(from_wei(proxy_savvy_finance.balanceOf(account.address)))
+    print(from_wei(proxy_savvy_finance.balanceOf(account2.address)))
+    print(from_wei(proxy_savvy_finance.balanceOf(account1.address)))
     print(from_wei(proxy_savvy_finance.balanceOf(get_account().address)))
 
     #####

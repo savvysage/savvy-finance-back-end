@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 contract SavvyFinanceFarm is Ownable, AccessControl {
     address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
     mapping(address => bool) public isExcludedFromFees;
+    mapping(address => mapping(address => bool)) public isExcludedFromAdminFees;
     mapping(uint256 => string) public tokenCategoryNumberToName;
 
     struct ConfigDetails {
@@ -148,6 +149,14 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
 
     function secondsToYears(uint256 _seconds) public pure returns (uint256) {
         return fromWei(_seconds * (0.0000000317098 * (10**18)));
+    }
+
+    function calculatePercentage(uint256 _percentageValue, uint256 _totalAmount)
+        public
+        pure
+        returns (uint256)
+    {
+        return (_totalAmount / toWei(100)) * _percentageValue;
     }
 
     function tokenExists(address _token) public view returns (bool) {
@@ -329,6 +338,20 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         tokensData[_token].isActive = false;
     }
 
+    function excludeFromAdminFees(address _token, address _address)
+        public
+        onlyRole(toRole(_token))
+    {
+        isExcludedFromAdminFees[_token][_address] = true;
+    }
+
+    function includeInAdminFees(address _token, address _address)
+        public
+        onlyRole(toRole(_token))
+    {
+        isExcludedFromAdminFees[_token][_address] = false;
+    }
+
     function setTokenName(address _token, string memory _name)
         public
         onlyRole(toRole(_token))
@@ -440,6 +463,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         onlyRole(toRole(_token))
     {
         require(tokenExists(_token), "Token does not exist.");
+        require(tokensData[_token].isVerified, "Token not verified.");
         tokensData[_token].hasMultiTokenRewards = true;
     }
 
@@ -487,6 +511,62 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         stakersData[_staker].timestampAdded = block.timestamp;
     }
 
+    function getStakeFeeAmounts(address _token, uint256 _amount)
+        public
+        returns (uint256 stakeFeeAmount, uint256 adminStakeFeeAmount)
+    {
+        uint256 stakeFee = tokensData[_token].stakingConfigData.stakeFee;
+        uint256 adminStakeFee = tokensData[_token]
+            .stakingConfigData
+            .adminStakeFee;
+        uint256 stakeFeeAmount = calculatePercentage(stakeFee, _amount);
+        uint256 adminStakeFeeAmount = calculatePercentage(
+            adminStakeFee,
+            _amount
+        );
+
+        bool isExcludedFromStakeFee = isExcludedFromFees[_msgSender()];
+        bool isExcludedFromAdminStakeFee = isExcludedFromAdminFees[_token][
+            _msgSender()
+        ];
+        if (isExcludedFromStakeFee) {
+            stakeFeeAmount = 0;
+            adminStakeFeeAmount = 0;
+        } else if (isExcludedFromAdminStakeFee) {
+            adminStakeFeeAmount = 0;
+        }
+
+        return (stakeFeeAmount, adminStakeFeeAmount);
+    }
+
+    function getUnstakeFeeAmounts(address _token, uint256 _amount)
+        public
+        returns (uint256 unstakeFeeAmount, uint256 adminUnstakeFeeAmount)
+    {
+        uint256 unstakeFee = tokensData[_token].stakingConfigData.unstakeFee;
+        uint256 adminUnstakeFee = tokensData[_token]
+            .stakingConfigData
+            .adminUnstakeFee;
+        uint256 unstakeFeeAmount = calculatePercentage(unstakeFee, _amount);
+        uint256 adminUnstakeFeeAmount = calculatePercentage(
+            adminUnstakeFee,
+            _amount
+        );
+
+        bool isExcludedFromUnstakeFee = isExcludedFromFees[_msgSender()];
+        bool isExcludedFromAdminUnstakeFee = isExcludedFromAdminFees[_token][
+            _msgSender()
+        ];
+        if (isExcludedFromUnstakeFee) {
+            unstakeFeeAmount = 0;
+            adminUnstakeFeeAmount = 0;
+        } else if (isExcludedFromAdminUnstakeFee) {
+            adminUnstakeFeeAmount = 0;
+        }
+
+        return (unstakeFeeAmount, adminUnstakeFeeAmount);
+    }
+
     function stakeToken(address _token, uint256 _amount) public {
         require(tokensData[_token].isActive, "Token not active.");
         require(_amount > 0, "Amount must be greater than zero.");
@@ -495,28 +575,23 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             "Insufficient wallet balance."
         );
 
-        uint256 stakeFeeAmount = (_amount / toWei(100)) *
-            tokensData[_token].stakingConfigData.stakeFee;
-        uint256 adminStakeFeeAmount = (_amount / toWei(100)) *
-            tokensData[_token].stakingConfigData.adminStakeFee;
-        uint256 totalStakeFeeAmount = stakeFeeAmount + adminStakeFeeAmount;
-
-        uint256 stakeAmount;
-        if (totalStakeFeeAmount == 0 || isExcludedFromFees[_msgSender()]) {
-            stakeAmount = _amount;
-        } else {
+        (
+            uint256 stakeFeeAmount,
+            uint256 adminStakeFeeAmount
+        ) = getStakeFeeAmounts(_token, _amount);
+        if (stakeFeeAmount != 0)
             IERC20(_token).transferFrom(
                 _msgSender(),
                 configData.developmentWallet,
                 stakeFeeAmount
             );
+        if (adminStakeFeeAmount != 0)
             IERC20(_token).transferFrom(
                 _msgSender(),
                 tokensData[_token].admin,
                 adminStakeFeeAmount
             );
-            stakeAmount = _amount - totalStakeFeeAmount;
-        }
+        uint256 stakeAmount = _amount - (stakeFeeAmount + adminStakeFeeAmount);
         IERC20(_token).transferFrom(_msgSender(), address(this), stakeAmount);
 
         if (tokensStakersData[_token][_msgSender()].stakingBalance == 0) {
@@ -587,27 +662,22 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         tokensData[_token].stakingBalance -= _amount;
         tokensData[_token].timestampLastUpdated = block.timestamp;
 
-        uint256 unstakeFeeAmount = (_amount / toWei(100)) *
-            tokensData[_token].stakingConfigData.unstakeFee;
-        uint256 adminUnstakeFeeAmount = (_amount / toWei(100)) *
-            tokensData[_token].stakingConfigData.adminUnstakeFee;
-        uint256 totalUnstakeFeeAmount = unstakeFeeAmount +
-            adminUnstakeFeeAmount;
-
-        uint256 unstakeAmount;
-        if (totalUnstakeFeeAmount == 0 || isExcludedFromFees[_msgSender()]) {
-            unstakeAmount = _amount;
-        } else {
+        (
+            uint256 unstakeFeeAmount,
+            uint256 adminUnstakeFeeAmount
+        ) = getUnstakeFeeAmounts(_token, _amount);
+        if (unstakeFeeAmount != 0)
             IERC20(_token).transfer(
                 configData.developmentWallet,
                 unstakeFeeAmount
             );
+        if (adminUnstakeFeeAmount != 0)
             IERC20(_token).transfer(
                 tokensData[_token].admin,
                 adminUnstakeFeeAmount
             );
-            unstakeAmount = _amount - totalUnstakeFeeAmount;
-        }
+        uint256 unstakeAmount = _amount -
+            (unstakeFeeAmount + adminUnstakeFeeAmount);
         IERC20(_token).transfer(_msgSender(), unstakeAmount);
         emit Unstake(_msgSender(), _token, unstakeAmount);
     }
