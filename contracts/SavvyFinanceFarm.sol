@@ -36,7 +36,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         // uint256 index;
         bool isActive;
         bool isVerified;
-        bool hasMultiReward;
+        bool hasMultiTokenRewards;
         string name;
         uint256 category;
         uint256 price;
@@ -355,14 +355,12 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         require(
             _stakingApr >= configData.minimumStakingApr &&
                 _stakingApr <= configData.maximumStakingApr,
-            string(
-                abi.encodePacked(
-                    "Staking APR must be between",
-                    fromWei(configData.minimumStakingApr),
-                    "and",
-                    fromWei(configData.maximumStakingApr),
-                    "."
-                )
+            string.concat(
+                "Staking APR must be between ",
+                Strings.toString(fromWei(configData.minimumStakingApr)),
+                "% and ",
+                Strings.toString(fromWei(configData.maximumStakingApr)),
+                "%."
             )
         );
         tokensData[_token].stakingConfigData.stakingApr = _stakingApr;
@@ -387,14 +385,12 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         require(
             _stakeFee >= configData.minimumStakingFee &&
                 _stakeFee <= configData.maximumStakingFee,
-            string(
-                abi.encodePacked(
-                    "Stake fee must be between",
-                    fromWei(configData.minimumStakingFee),
-                    "and",
-                    fromWei(configData.maximumStakingFee),
-                    "."
-                )
+            string.concat(
+                "Stake fee must be between ",
+                Strings.toString(fromWei(configData.minimumStakingFee)),
+                "% and ",
+                Strings.toString(fromWei(configData.maximumStakingFee)),
+                "%."
             )
         );
 
@@ -413,14 +409,12 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         require(
             _unstakeFee >= configData.minimumStakingFee &&
                 _unstakeFee <= configData.maximumStakingFee,
-            string(
-                abi.encodePacked(
-                    "Unstake fee must be between",
-                    fromWei(configData.minimumStakingFee),
-                    "and",
-                    fromWei(configData.maximumStakingFee),
-                    "."
-                )
+            string.concat(
+                "Unstake fee must be between ",
+                Strings.toString(fromWei(configData.minimumStakingFee)),
+                "% and ",
+                Strings.toString(fromWei(configData.maximumStakingFee)),
+                "%."
             )
         );
 
@@ -441,20 +435,20 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
-    function enableTokenMultiReward(address _token)
+    function enableTokenMultiTokenRewards(address _token)
         public
         onlyRole(toRole(_token))
     {
         require(tokenExists(_token), "Token does not exist.");
-        tokensData[_token].hasMultiReward = true;
+        tokensData[_token].hasMultiTokenRewards = true;
     }
 
-    function disableTokenMultiReward(address _token)
+    function disableTokenMultiTokenRewards(address _token)
         public
         onlyRole(toRole(_token))
     {
         require(tokenExists(_token), "Token does not exist.");
-        tokensData[_token].hasMultiReward = false;
+        tokensData[_token].hasMultiTokenRewards = false;
     }
 
     function depositToken(address _token, uint256 _amount)
@@ -650,16 +644,16 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         if (validate) {
             require(tokensData[_token].isActive, "Token not active.");
             require(
-                tokensData[_token].hasMultiReward,
-                "Token does not have multi reward."
+                tokensData[_token].hasMultiTokenRewards,
+                "Token does not have multi token rewards."
             );
             require(
                 tokensData[_reward_token].isActive,
                 "Reward token not active."
             );
             require(
-                tokensData[_reward_token].hasMultiReward,
-                "Reward token does not have multi reward."
+                tokensData[_reward_token].hasMultiTokenRewards,
+                "Reward token does not have multi token rewards."
             );
         }
 
