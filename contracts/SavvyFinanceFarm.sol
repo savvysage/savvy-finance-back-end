@@ -9,7 +9,8 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 contract SavvyFinanceFarm is Ownable, AccessControl {
     address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
     mapping(address => bool) public isExcludedFromFees;
-    mapping(address => mapping(address => bool)) public isExcludedFromAdminFees;
+    mapping(address => mapping(address => bool))
+        public isExcludedFromTokenAdminFees;
     mapping(uint256 => string) public tokenCategoryNumberToName;
 
     struct ConfigDetails {
@@ -26,10 +27,11 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     ConfigDetails public configData;
 
     address[] public tokens;
-    struct TokenStakingConfigDetails {
-        uint256 stakingApr;
-        uint256 stakeFee;
-        uint256 unstakeFee;
+    struct TokenFeesDetails {
+        uint256 devDepositFee;
+        uint256 devWithdrawFee;
+        uint256 devStakeFee;
+        uint256 devUnstakeFee;
         uint256 adminStakeFee;
         uint256 adminUnstakeFee;
     }
@@ -43,7 +45,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         uint256 price;
         uint256 rewardBalance;
         uint256 stakingBalance;
-        TokenStakingConfigDetails stakingConfigData;
+        uint256 stakingApr;
+        TokenFeesDetails fees;
         address rewardToken;
         address admin;
         uint256 timestampAdded;
@@ -269,13 +272,13 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
-    function setTokenStakingFees(
+    function setTokenDevStakingFees(
         address _token,
-        uint256 _stakeFee,
-        uint256 _unstakeFee
+        uint256 _devStakeFee,
+        uint256 _devUnstakeFee
     ) public onlyOwner {
-        setTokenStakeFee(_token, _stakeFee, false);
-        setTokenUnstakeFee(_token, _unstakeFee, false);
+        setTokenStakeFee(_token, _devStakeFee, false);
+        setTokenUnstakeFee(_token, _devUnstakeFee, false);
     }
 
     function setTokenAdmin(address _token, address _admin) public onlyOwner {
@@ -314,10 +317,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         // tokensData[_token].index = index;
         tokensData[_token].name = _name;
         tokensData[_token].category = _category;
-        tokensData[_token].stakingConfigData.stakeFee = configData
-            .defaultStakingFee;
-        tokensData[_token].stakingConfigData.unstakeFee = configData
-            .defaultStakingFee;
+        tokensData[_token].fees.devStakeFee = configData.defaultStakingFee;
+        tokensData[_token].fees.devUnstakeFee = configData.defaultStakingFee;
         tokensData[_token].admin = _msgSender();
         tokensData[_token].timestampAdded = block.timestamp;
         setTokenStakingApr(_token, _stakingApr);
@@ -338,18 +339,18 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         tokensData[_token].isActive = false;
     }
 
-    function excludeFromAdminFees(address _token, address _address)
+    function excludeFromTokenAdminFees(address _token, address _address)
         public
         onlyRole(toRole(_token))
     {
-        isExcludedFromAdminFees[_token][_address] = true;
+        isExcludedFromTokenAdminFees[_token][_address] = true;
     }
 
-    function includeInAdminFees(address _token, address _address)
+    function includeInTokenAdminFees(address _token, address _address)
         public
         onlyRole(toRole(_token))
     {
-        isExcludedFromAdminFees[_token][_address] = false;
+        isExcludedFromTokenAdminFees[_token][_address] = false;
     }
 
     function setTokenName(address _token, string memory _name)
@@ -386,17 +387,17 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
                 "%."
             )
         );
-        tokensData[_token].stakingConfigData.stakingApr = _stakingApr;
+        tokensData[_token].stakingApr = _stakingApr;
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
     function setTokenAdminStakingFees(
         address _token,
-        uint256 _stakeFee,
-        uint256 _unstakeFee
+        uint256 _adminStakeFee,
+        uint256 _adminUnstakeFee
     ) public onlyRole(toRole(_token)) {
-        setTokenStakeFee(_token, _stakeFee, true);
-        setTokenUnstakeFee(_token, _unstakeFee, true);
+        setTokenStakeFee(_token, _adminStakeFee, true);
+        setTokenUnstakeFee(_token, _adminUnstakeFee, true);
     }
 
     function setTokenStakeFee(
@@ -417,9 +418,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             )
         );
 
-        if (forAdmin)
-            tokensData[_token].stakingConfigData.adminStakeFee = _stakeFee;
-        else tokensData[_token].stakingConfigData.stakeFee = _stakeFee;
+        if (forAdmin) tokensData[_token].fees.adminStakeFee = _stakeFee;
+        else tokensData[_token].fees.devStakeFee = _stakeFee;
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
@@ -441,9 +441,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             )
         );
 
-        if (forAdmin)
-            tokensData[_token].stakingConfigData.adminUnstakeFee = _unstakeFee;
-        else tokensData[_token].stakingConfigData.unstakeFee = _unstakeFee;
+        if (forAdmin) tokensData[_token].fees.adminUnstakeFee = _unstakeFee;
+        else tokensData[_token].fees.devUnstakeFee = _unstakeFee;
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
@@ -511,60 +510,59 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         stakersData[_staker].timestampAdded = block.timestamp;
     }
 
-    function getStakeFeeAmounts(address _token, uint256 _amount)
+    function getTokenStakeFeeAmounts(address _token, uint256 _amount)
         public
-        returns (uint256 stakeFeeAmount, uint256 adminStakeFeeAmount)
+        returns (uint256 devStakeFeeAmount, uint256 adminStakeFeeAmount)
     {
-        uint256 stakeFee = tokensData[_token].stakingConfigData.stakeFee;
-        uint256 adminStakeFee = tokensData[_token]
-            .stakingConfigData
-            .adminStakeFee;
-        uint256 stakeFeeAmount = calculatePercentage(stakeFee, _amount);
+        uint256 devStakeFee = tokensData[_token].fees.devStakeFee;
+        uint256 adminStakeFee = tokensData[_token].fees.adminStakeFee;
+        uint256 devStakeFeeAmount = calculatePercentage(devStakeFee, _amount);
         uint256 adminStakeFeeAmount = calculatePercentage(
             adminStakeFee,
             _amount
         );
 
         bool isExcludedFromStakeFee = isExcludedFromFees[_msgSender()];
-        bool isExcludedFromAdminStakeFee = isExcludedFromAdminFees[_token][
+        bool isExcludedFromAdminStakeFee = isExcludedFromTokenAdminFees[_token][
             _msgSender()
         ];
         if (isExcludedFromStakeFee) {
-            stakeFeeAmount = 0;
+            devStakeFeeAmount = 0;
             adminStakeFeeAmount = 0;
         } else if (isExcludedFromAdminStakeFee) {
             adminStakeFeeAmount = 0;
         }
 
-        return (stakeFeeAmount, adminStakeFeeAmount);
+        return (devStakeFeeAmount, adminStakeFeeAmount);
     }
 
-    function getUnstakeFeeAmounts(address _token, uint256 _amount)
+    function getTokenUnstakeFeeAmounts(address _token, uint256 _amount)
         public
-        returns (uint256 unstakeFeeAmount, uint256 adminUnstakeFeeAmount)
+        returns (uint256 devUnstakeFeeAmount, uint256 adminUnstakeFeeAmount)
     {
-        uint256 unstakeFee = tokensData[_token].stakingConfigData.unstakeFee;
-        uint256 adminUnstakeFee = tokensData[_token]
-            .stakingConfigData
-            .adminUnstakeFee;
-        uint256 unstakeFeeAmount = calculatePercentage(unstakeFee, _amount);
+        uint256 devUnstakeFee = tokensData[_token].fees.devUnstakeFee;
+        uint256 adminUnstakeFee = tokensData[_token].fees.adminUnstakeFee;
+        uint256 devUnstakeFeeAmount = calculatePercentage(
+            devUnstakeFee,
+            _amount
+        );
         uint256 adminUnstakeFeeAmount = calculatePercentage(
             adminUnstakeFee,
             _amount
         );
 
         bool isExcludedFromUnstakeFee = isExcludedFromFees[_msgSender()];
-        bool isExcludedFromAdminUnstakeFee = isExcludedFromAdminFees[_token][
-            _msgSender()
-        ];
+        bool isExcludedFromAdminUnstakeFee = isExcludedFromTokenAdminFees[
+            _token
+        ][_msgSender()];
         if (isExcludedFromUnstakeFee) {
-            unstakeFeeAmount = 0;
+            devUnstakeFeeAmount = 0;
             adminUnstakeFeeAmount = 0;
         } else if (isExcludedFromAdminUnstakeFee) {
             adminUnstakeFeeAmount = 0;
         }
 
-        return (unstakeFeeAmount, adminUnstakeFeeAmount);
+        return (devUnstakeFeeAmount, adminUnstakeFeeAmount);
     }
 
     function stakeToken(address _token, uint256 _amount) public {
@@ -576,14 +574,14 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         );
 
         (
-            uint256 stakeFeeAmount,
+            uint256 devStakeFeeAmount,
             uint256 adminStakeFeeAmount
-        ) = getStakeFeeAmounts(_token, _amount);
-        if (stakeFeeAmount != 0)
+        ) = getTokenStakeFeeAmounts(_token, _amount);
+        if (devStakeFeeAmount != 0)
             IERC20(_token).transferFrom(
                 _msgSender(),
                 configData.developmentWallet,
-                stakeFeeAmount
+                devStakeFeeAmount
             );
         if (adminStakeFeeAmount != 0)
             IERC20(_token).transferFrom(
@@ -591,7 +589,8 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
                 tokensData[_token].admin,
                 adminStakeFeeAmount
             );
-        uint256 stakeAmount = _amount - (stakeFeeAmount + adminStakeFeeAmount);
+        uint256 stakeAmount = _amount -
+            (devStakeFeeAmount + adminStakeFeeAmount);
         IERC20(_token).transferFrom(_msgSender(), address(this), stakeAmount);
 
         if (tokensStakersData[_token][_msgSender()].stakingBalance == 0) {
@@ -663,13 +662,13 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         tokensData[_token].timestampLastUpdated = block.timestamp;
 
         (
-            uint256 unstakeFeeAmount,
+            uint256 devUnstakeFeeAmount,
             uint256 adminUnstakeFeeAmount
-        ) = getUnstakeFeeAmounts(_token, _amount);
-        if (unstakeFeeAmount != 0)
+        ) = getTokenUnstakeFeeAmounts(_token, _amount);
+        if (devUnstakeFeeAmount != 0)
             IERC20(_token).transfer(
                 configData.developmentWallet,
-                unstakeFeeAmount
+                devUnstakeFeeAmount
             );
         if (adminUnstakeFeeAmount != 0)
             IERC20(_token).transfer(
@@ -677,7 +676,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
                 adminUnstakeFeeAmount
             );
         uint256 unstakeAmount = _amount -
-            (unstakeFeeAmount + adminUnstakeFeeAmount);
+            (devUnstakeFeeAmount + adminUnstakeFeeAmount);
         IERC20(_token).transfer(_msgSender(), unstakeAmount);
         emit Unstake(_msgSender(), _token, unstakeAmount);
     }
@@ -755,7 +754,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         uint256 stakingValue = fromWei(
             tokenStakerData.stakingBalance * tokenData.price
         );
-        uint256 stakingApr = tokenData.stakingConfigData.stakingApr;
+        uint256 stakingApr = tokenData.stakingApr;
         uint256 rate = stakingApr / 100;
         uint256 stakingTimestampStarted = tokenStakerData
             .timestampLastRewarded != 0

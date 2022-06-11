@@ -107,18 +107,20 @@ def get_tokens_data(contract, tokens=None, account=get_account()):
             "hasMultiTokenRewards": token_data[2],
             "name": token_data[3],
             "category": token_data[4],
-            "price": float(web3.fromWei(token_data[5], "ether")),
-            "rewardBalance": float(web3.fromWei(token_data[6], "ether")),
-            "stakingBalance": float(web3.fromWei(token_data[7], "ether")),
-            "stakingApr": float(web3.fromWei(token_data[8][0], "ether")),
-            "stakeFee": float(web3.fromWei(token_data[8][1], "ether")),
-            "unstakeFee": float(web3.fromWei(token_data[8][2], "ether")),
-            "adminStakeFee": float(web3.fromWei(token_data[8][3], "ether")),
-            "adminUnstakeFee": float(web3.fromWei(token_data[8][4], "ether")),
-            "rewardToken": token_data[9],
-            "admin": token_data[10],
-            "timestampAdded": token_data[11],
-            "timestampLastUpdated": token_data[12],
+            "price": float(from_wei(token_data[5])),
+            "rewardBalance": float(from_wei(token_data[6])),
+            "stakingBalance": float(from_wei(token_data[7])),
+            "stakingApr": float(from_wei(token_data[8])),
+            "devDepositFee": float(from_wei(token_data[9][0])),
+            "devWithdrawFee": float(from_wei(token_data[9][1])),
+            "devStakeFee": float(from_wei(token_data[9][2])),
+            "devUnstakeFee": float(from_wei(token_data[9][3])),
+            "adminStakeFee": float(from_wei(token_data[9][4])),
+            "adminUnstakeFee": float(from_wei(token_data[9][5])),
+            "rewardToken": token_data[10],
+            "admin": token_data[11],
+            "timestampAdded": token_data[12],
+            "timestampLastUpdated": token_data[13],
         }
         tokens_data.append(token_data_dict)
     return tokens_data
@@ -230,14 +232,18 @@ def add_tokens(contract, tokens=get_tokens(), account=get_account()):
         print("Added " + token_name + " token.", "\n\n")
 
 
-def exclude_from_admin_fees(contract, token_contract, address, account=get_account()):
-    contract.excludeFromAdminFees(
+def exclude_from_token_admin_fees(
+    contract, token_contract, address, account=get_account()
+):
+    contract.excludeFromTokenAdminFees(
         token_contract.address, address, {"from": account}
     ).wait(1)
 
 
-def include_in_admin_fees(contract, token_contract, address, account=get_account()):
-    contract.includeInAdminFees(
+def include_in_token_admin_fees(
+    contract, token_contract, address, account=get_account()
+):
+    contract.includeInTokenAdminFees(
         token_contract.address, address, {"from": account}
     ).wait(1)
 
@@ -533,7 +539,7 @@ def main():
     deposit_token(proxy_savvy_finance_farm, proxy_savvy_finance, 2000, account1)
     withdraw_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account1)
     # exclude_from_fees(proxy_savvy_finance_farm, get_account().address)
-    # exclude_from_admin_fees(
+    # exclude_from_token_admin_fees(
     #     proxy_savvy_finance_farm,
     #     proxy_savvy_finance,
     #     get_account().address,
