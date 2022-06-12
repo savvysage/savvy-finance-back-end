@@ -205,9 +205,7 @@ def include_in_fees(contract, address, account=get_account()):
 
 def set_token_categories(contract, categories, account=get_account()):
     for index, category in enumerate(categories):
-        contract.setTokenCategoryNumberToName(index, category, {"from": account}).wait(
-            1
-        )
+        contract.configTokenCategory(index, category, {"from": account}).wait(1)
 
 
 def add_tokens(contract, tokens=get_tokens(), account=get_account()):
