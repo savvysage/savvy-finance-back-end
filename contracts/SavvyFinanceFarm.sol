@@ -291,13 +291,25 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
+    function setTokenDevDepositWithdrawFees(
+        address _token,
+        uint256 _devDepositFee,
+        uint256 _devWithdrawFee
+    ) public onlyOwner {
+        _setTokenDepositWithdrawFees(
+            _token,
+            _devDepositFee,
+            _devWithdrawFee,
+            "dev"
+        );
+    }
+
     function setTokenDevStakeUnstakeFees(
         address _token,
         uint256 _devStakeFee,
         uint256 _devUnstakeFee
     ) public onlyOwner {
-        setTokenStakeFee(_token, _devStakeFee, false);
-        setTokenUnstakeFee(_token, _devUnstakeFee, false);
+        _setTokenStakeUnstakeFees(_token, _devStakeFee, _devUnstakeFee, "dev");
     }
 
     function setTokenAdmin(address _token, address _admin) public onlyOwner {
@@ -317,6 +329,34 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
     function unverifyToken(address _token) public onlyOwner {
         require(tokenExists(_token), "Token does not exist.");
         tokensData[_token].isVerified = false;
+    }
+
+    function issueStakingRewards() public onlyOwner {
+        for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
+            address token = tokens[tokenIndex];
+
+            for (
+                uint256 stakerIndex = 0;
+                stakerIndex < stakers.length;
+                stakerIndex++
+            ) {
+                address staker = stakers[stakerIndex];
+
+                _issueStakingReward(
+                    token,
+                    staker,
+                    ["issue staking rewards", ""]
+                );
+            }
+        }
+    }
+
+    function transferToken(
+        address _token,
+        address _to,
+        uint256 _amount
+    ) public onlyOwner {
+        IERC20(_token).transfer(_to, _amount);
     }
 
     function addToken(
@@ -421,54 +461,12 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         uint256 _adminStakeFee,
         uint256 _adminUnstakeFee
     ) public onlyRole(toRole(_token)) {
-        setTokenStakeFee(_token, _adminStakeFee, true);
-        setTokenUnstakeFee(_token, _adminUnstakeFee, true);
-    }
-
-    function setTokenStakeFee(
-        address _token,
-        uint256 _stakeFee,
-        bool forAdmin
-    ) internal {
-        require(tokenExists(_token), "Token does not exist.");
-        require(
-            _stakeFee >= configData.minimumStakeUnstakeFee &&
-                _stakeFee <= configData.maximumStakeUnstakeFee,
-            string.concat(
-                "Stake fee must be between ",
-                Strings.toString(fromWei(configData.minimumStakeUnstakeFee)),
-                "% and ",
-                Strings.toString(fromWei(configData.maximumStakeUnstakeFee)),
-                "%."
-            )
+        _setTokenStakeUnstakeFees(
+            _token,
+            _adminStakeFee,
+            _adminUnstakeFee,
+            "admin"
         );
-
-        if (forAdmin) tokensData[_token].fees.adminStakeFee = _stakeFee;
-        else tokensData[_token].fees.devStakeFee = _stakeFee;
-        tokensData[_token].timestampLastUpdated = block.timestamp;
-    }
-
-    function setTokenUnstakeFee(
-        address _token,
-        uint256 _unstakeFee,
-        bool forAdmin
-    ) internal {
-        require(tokenExists(_token), "Token does not exist.");
-        require(
-            _unstakeFee >= configData.minimumStakeUnstakeFee &&
-                _unstakeFee <= configData.maximumStakeUnstakeFee,
-            string.concat(
-                "Unstake fee must be between ",
-                Strings.toString(fromWei(configData.minimumStakeUnstakeFee)),
-                "% and ",
-                Strings.toString(fromWei(configData.maximumStakeUnstakeFee)),
-                "%."
-            )
-        );
-
-        if (forAdmin) tokensData[_token].fees.adminUnstakeFee = _unstakeFee;
-        else tokensData[_token].fees.devUnstakeFee = _unstakeFee;
-        tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
     function setTokenRewardToken(address _token, address _reward_token)
@@ -527,19 +525,11 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         IERC20(_token).transfer(_msgSender(), _amount);
     }
 
-    function addStaker(address _staker) internal {
-        require(!stakerExists(_staker), "Staker already exists.");
-        // uint256 index = stakers.length;
-        stakers.push(_staker);
-        // stakersData[_staker].index = index;
-        stakersData[_staker].timestampAdded = block.timestamp;
-    }
-
     function getTokenFeeAmounts(
         address _token,
         uint256 _amount,
         string memory _action
-    ) public returns (uint256 devFeeAmount, uint256 adminFeeAmount) {
+    ) public view returns (uint256 devFeeAmount, uint256 adminFeeAmount) {
         require(tokenExists(_token), "Token does not exist.");
         require(_amount > 0, "Amount must be greater than zero.");
 
@@ -615,7 +605,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
 
         if (tokensStakersData[_token][_msgSender()].stakingBalance == 0) {
             if (stakersData[_msgSender()].uniqueTokensStaked == 0) {
-                if (!stakerExists(_msgSender())) addStaker(_msgSender());
+                if (!stakerExists(_msgSender())) _addStaker(_msgSender());
                 stakersData[_msgSender()].isActive = true;
             }
 
@@ -632,7 +622,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
                 tokensStakersData[_token][_msgSender()]
                     .stakingRewardToken = tokensData[_token].rewardToken;
         } else {
-            issueStakingReward(
+            _issueStakingReward(
                 _token,
                 _msgSender(),
                 ["stake", Strings.toString(fromWei(_amount))]
@@ -658,7 +648,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             "Insufficient staking balance."
         );
 
-        issueStakingReward(
+        _issueStakingReward(
             _token,
             _msgSender(),
             ["unstake", Strings.toString(fromWei(_amount))]
@@ -701,6 +691,12 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         emit Unstake(_msgSender(), _token, unstakeAmount);
     }
 
+    function setStakingRewardToken(address _token, address _reward_token)
+        public
+    {
+        _setStakingRewardToken(_msgSender(), _token, _reward_token, true);
+    }
+
     function withdrawStakingReward(address _reward_token, uint256 _amount)
         public
     {
@@ -718,18 +714,112 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         emit WithdrawStakingReward(_msgSender(), _reward_token, _amount);
     }
 
-    function setStakingRewardToken(address _token, address _reward_token)
-        public
-    {
-        setStakerStakingRewardToken(_msgSender(), _token, _reward_token, true);
+    function _setTokenDepositWithdrawFees(
+        address _token,
+        uint256 _depositFee,
+        uint256 _withdrawFee,
+        string memory _for
+    ) internal {
+        require(tokenExists(_token), "Token does not exist.");
+        require(
+            _depositFee >= configData.minimumDepositWithdrawFee &&
+                _depositFee <= configData.maximumDepositWithdrawFee,
+            string.concat(
+                "Deposit fee must be between ",
+                Strings.toString(fromWei(configData.minimumDepositWithdrawFee)),
+                "% and ",
+                Strings.toString(fromWei(configData.maximumDepositWithdrawFee)),
+                "%."
+            )
+        );
+        require(
+            _withdrawFee >= configData.minimumDepositWithdrawFee &&
+                _withdrawFee <= configData.maximumDepositWithdrawFee,
+            string.concat(
+                "Withdraw fee must be between ",
+                Strings.toString(fromWei(configData.minimumDepositWithdrawFee)),
+                "% and ",
+                Strings.toString(fromWei(configData.maximumDepositWithdrawFee)),
+                "%."
+            )
+        );
+
+        if (
+            keccak256(abi.encodePacked(_for)) ==
+            keccak256(abi.encodePacked("dev"))
+        ) {
+            tokensData[_token].fees.devDepositFee = _depositFee;
+            tokensData[_token].fees.devWithdrawFee = _withdrawFee;
+        } else if (
+            keccak256(abi.encodePacked(_for)) ==
+            keccak256(abi.encodePacked("admin"))
+        ) {
+            // tokensData[_token].fees.adminDepositFee = _depositFee;
+            // tokensData[_token].fees.adminWithdrawFee = _withdrawFee;
+        }
+        tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
-    function setStakerStakingRewardToken(
+    function _setTokenStakeUnstakeFees(
+        address _token,
+        uint256 _stakeFee,
+        uint256 _unstakeFee,
+        string memory _for
+    ) internal {
+        require(tokenExists(_token), "Token does not exist.");
+        require(
+            _stakeFee >= configData.minimumStakeUnstakeFee &&
+                _stakeFee <= configData.maximumStakeUnstakeFee,
+            string.concat(
+                "Stake fee must be between ",
+                Strings.toString(fromWei(configData.minimumStakeUnstakeFee)),
+                "% and ",
+                Strings.toString(fromWei(configData.maximumStakeUnstakeFee)),
+                "%."
+            )
+        );
+        require(
+            _unstakeFee >= configData.minimumStakeUnstakeFee &&
+                _unstakeFee <= configData.maximumStakeUnstakeFee,
+            string.concat(
+                "Unstake fee must be between ",
+                Strings.toString(fromWei(configData.minimumStakeUnstakeFee)),
+                "% and ",
+                Strings.toString(fromWei(configData.maximumStakeUnstakeFee)),
+                "%."
+            )
+        );
+
+        if (
+            keccak256(abi.encodePacked(_for)) ==
+            keccak256(abi.encodePacked("dev"))
+        ) {
+            tokensData[_token].fees.devStakeFee = _stakeFee;
+            tokensData[_token].fees.devUnstakeFee = _unstakeFee;
+        } else if (
+            keccak256(abi.encodePacked(_for)) ==
+            keccak256(abi.encodePacked("admin"))
+        ) {
+            tokensData[_token].fees.adminStakeFee = _stakeFee;
+            tokensData[_token].fees.adminUnstakeFee = _unstakeFee;
+        }
+        tokensData[_token].timestampLastUpdated = block.timestamp;
+    }
+
+    function _addStaker(address _staker) internal {
+        require(!stakerExists(_staker), "Staker already exists.");
+        // uint256 index = stakers.length;
+        stakers.push(_staker);
+        // stakersData[_staker].index = index;
+        stakersData[_staker].timestampAdded = block.timestamp;
+    }
+
+    function _setStakingRewardToken(
         address _staker,
         address _token,
         address _reward_token,
         bool validate
-    ) internal returns (address) {
+    ) internal returns (address stakingRewardToken) {
         if (validate) {
             require(tokensData[_token].isActive, "Token not active.");
             require(
@@ -746,24 +836,26 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             );
         }
 
-        if (!stakerExists(_staker)) addStaker(_staker);
+        if (!stakerExists(_staker)) _addStaker(_staker);
         tokensStakersData[_token][_staker].stakingRewardToken = _reward_token;
+        tokensStakersData[_token][_staker].timestampLastUpdated = block
+            .timestamp;
         return tokensStakersData[_token][_staker].stakingRewardToken;
     }
 
-    function calculateStakerStakingRewardValue(address _staker, address _token)
+    function _calculateStakingReward(address _token, address _staker)
         internal
         view
         returns (
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            uint256
+            uint256 stakingRewardValue,
+            uint256 stakingDurationInSeconds,
+            uint256 stakingApr,
+            uint256 stakingBalance,
+            uint256 tokenPrice
         )
     {
-        if (!stakerExists(_staker)) return (0, 0, 0, 0, 0);
         if (!tokenExists(_token)) return (0, 0, 0, 0, 0);
+        if (!stakerExists(_staker)) return (0, 0, 0, 0, 0);
 
         TokenDetails memory tokenData = tokensData[_token];
         TokenStakerDetails memory tokenStakerData = tokensStakersData[_token][
@@ -774,7 +866,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         uint256 stakingValue = fromWei(
             tokenStakerData.stakingBalance * tokenData.price
         );
-        uint256 rate = tokenData.stakingApr / 100;
+        uint256 stakingRewardRate = tokenData.stakingApr / 100;
         uint256 stakingTimestampStarted = tokenStakerData
             .timestampLastRewarded != 0
             ? tokenStakerData.timestampLastRewarded
@@ -787,19 +879,19 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
             stakingDurationInSeconds
         );
         uint256 stakingRewardValue = (stakingValue *
-            rate *
+            stakingRewardRate *
             stakingDurationInYears) / (10**36);
 
         return (
             stakingRewardValue,
-            tokenData.stakingApr,
             stakingDurationInSeconds,
+            tokenData.stakingApr,
             tokenStakerData.stakingBalance,
             tokenData.price
         );
     }
 
-    function issueStakingReward(
+    function _issueStakingReward(
         address _token,
         address _staker,
         string[2] memory _triggeredBy
@@ -816,7 +908,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         if (!tokensData[tokenStakerData.stakingRewardToken].isActive) {
             if (tokenStakerData.stakingRewardToken == tokenData.rewardToken)
                 return;
-            tokenStakerData.stakingRewardToken = setStakerStakingRewardToken(
+            tokenStakerData.stakingRewardToken = _setStakingRewardToken(
                 _staker,
                 _token,
                 tokenData.rewardToken,
@@ -828,11 +920,11 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
 
         (
             uint256 stakingRewardValue,
-            uint256 stakingApr,
             uint256 stakingDurationInSeconds,
+            uint256 stakingApr,
             uint256 stakingBalance,
             uint256 tokenPrice
-        ) = calculateStakerStakingRewardValue(_staker, _token);
+        ) = _calculateStakingReward(_token, _staker);
         if (stakingRewardValue == 0) return;
 
         uint256 stakerRewardTokenRewardValue = getTokenRewardValue(
@@ -843,7 +935,7 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
                 deactivateToken(_token);
                 return;
             }
-            tokenStakerData.stakingRewardToken = setStakerStakingRewardToken(
+            tokenStakerData.stakingRewardToken = _setStakingRewardToken(
                 _staker,
                 _token,
                 tokenData.rewardToken,
@@ -897,33 +989,5 @@ contract SavvyFinanceFarm is Ownable, AccessControl {
         );
 
         emit IssueStakingReward(_staker, _token, tokenStakerRewardData);
-    }
-
-    function issueStakingRewards() public onlyOwner {
-        for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
-            address token = tokens[tokenIndex];
-
-            for (
-                uint256 stakerIndex = 0;
-                stakerIndex < stakers.length;
-                stakerIndex++
-            ) {
-                address staker = stakers[stakerIndex];
-
-                issueStakingReward(
-                    token,
-                    staker,
-                    ["issue staking rewards", ""]
-                );
-            }
-        }
-    }
-
-    function transferToken(
-        address _token,
-        address _to,
-        uint256 _amount
-    ) public onlyOwner {
-        IERC20(_token).transfer(_to, _amount);
     }
 }

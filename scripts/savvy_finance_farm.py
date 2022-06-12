@@ -554,12 +554,12 @@ def main():
     # withdraw_staking_reward(proxy_savvy_finance_farm, proxy_savvy_finance, 0.5)
 
     #####
-    # staking_reward_value = proxy_savvy_finance_farm.calculateStakerStakingRewardValue(
-    #     get_account().address, tokens["svf"]
+    # staking_reward_value = proxy_savvy_finance_farm._calculateStakingReward(
+    #     tokens["svf"], get_account().address
     # )
     # print(staking_reward_value, from_wei(staking_reward_value))
     # print(
-    #     proxy_savvy_finance_farm.issueStakingReward(
+    #     proxy_savvy_finance_farm._issueStakingReward(
     #         proxy_savvy_finance.address,
     #         get_account().address,
     #         ["", ""],
