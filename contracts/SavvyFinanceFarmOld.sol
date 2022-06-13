@@ -956,12 +956,12 @@ contract SavvyFinanceFarmOld is Ownable, AccessControl {
             .stakingRewards
             .length;
         tokenStakerRewardData.staker = _staker;
-        tokenStakerRewardData.stakedToken = _token;
-        tokenStakerRewardData.stakedTokenPrice = tokenPrice;
-        tokenStakerRewardData.stakedTokenAmount = stakingBalance;
         tokenStakerRewardData.rewardToken = tokenStakerData.stakingRewardToken;
         tokenStakerRewardData.rewardTokenPrice = stakingRewardTokenPrice;
         tokenStakerRewardData.rewardTokenAmount = stakingRewardTokenAmount;
+        tokenStakerRewardData.stakedToken = _token;
+        tokenStakerRewardData.stakedTokenPrice = tokenPrice;
+        tokenStakerRewardData.stakedTokenAmount = stakingBalance;
         tokenStakerRewardData.stakingApr = stakingApr;
         tokenStakerRewardData
             .stakingDurationInSeconds = stakingDurationInSeconds;

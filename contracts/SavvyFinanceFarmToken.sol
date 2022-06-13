@@ -65,7 +65,10 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
     }
 
     function getTokenRewardValue(address _token) public view returns (uint256) {
-        return tokensData[_token].rewardBalance * tokensData[_token].price;
+        return
+            _fromWei(
+                tokensData[_token].rewardBalance * tokensData[_token].price
+            );
     }
 
     function setTokenPrice(address _token, uint256 _price) public onlyOwner {
@@ -283,7 +286,7 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         address _token,
         uint256 _amount,
         string memory _action
-    ) public view returns (uint256 devFeeAmount, uint256 adminFeeAmount) {
+    ) public view returns (uint256, uint256) {
         require(tokenExists(_token), "Token does not exist.");
         require(_amount > 0, "Amount must be greater than zero.");
 

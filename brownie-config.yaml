@@ -4,6 +4,9 @@ dependencies:
   - smartcontractkit/chainlink-brownie-contracts@0.4.0
 compiler:
   solc:
+    # optimizer:
+    #   enabled: true
+    #   runs: 200
     remappings:
       - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.6.0"
       - "@openzeppelin-upgradeable=OpenZeppelin/openzeppelin-contracts-upgradeable@4.6.0"

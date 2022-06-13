@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "./SavvyFinanceFarmToken.sol";
 import "./SavvyFinanceFarmStaker.sol";
+import {SavvyFinanceFarmLibrary as Lib} from "./SavvyFinanceFarmLibrary.sol";
 
 contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
     struct TokenStakerRewardDetails {
@@ -33,22 +34,22 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
     mapping(address => mapping(address => TokenStakerDetails))
         public tokensStakersData;
 
-    event Stake(address indexed staker, address indexed token, uint256 amount);
-    event Unstake(
-        address indexed staker,
-        address indexed token,
-        uint256 amount
-    );
-    event IssueStakingReward(
-        address indexed staker,
-        address indexed token,
-        TokenStakerRewardDetails rewardData
-    );
-    event WithdrawStakingReward(
-        address indexed staker,
-        address indexed reward_token,
-        uint256 amount
-    );
+    // event Stake(address indexed staker, address indexed token, uint256 amount);
+    // event Unstake(
+    //     address indexed staker,
+    //     address indexed token,
+    //     uint256 amount
+    // );
+    // event IssueStakingReward(
+    //     address indexed staker,
+    //     address indexed token,
+    //     TokenStakerRewardDetails rewardData
+    // );
+    // event WithdrawStakingReward(
+    //     address indexed staker,
+    //     address indexed reward_token,
+    //     uint256 amount
+    // );
 
     function getTokenStakerData(address _token, address _staker)
         public
@@ -56,6 +57,18 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         returns (TokenStakerDetails memory)
     {
         return tokensStakersData[_token][_staker];
+    }
+
+    function getStakingValue(address _token, address _staker)
+        public
+        view
+        returns (uint256)
+    {
+        return
+            _fromWei(
+                tokensStakersData[_token][_staker].stakingBalance *
+                    tokensData[_token].price
+            );
     }
 
     function setStakingRewardToken(address _token, address _reward_token)
@@ -126,7 +139,8 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
                 .timestampLastUpdated = block.timestamp;
         tokensData[_token].stakingBalance += stakeAmount;
         tokensData[_token].timestampLastUpdated = block.timestamp;
-        emit Stake(_msgSender(), _token, stakeAmount);
+
+        // emit Stake(_msgSender(), _token, stakeAmount);
     }
 
     function unstakeToken(address _token, uint256 _amount) public {
@@ -177,7 +191,13 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         uint256 unstakeAmount = _amount -
             (devUnstakeFeeAmount + adminUnstakeFeeAmount);
         IERC20(_token).transfer(_msgSender(), unstakeAmount);
-        emit Unstake(_msgSender(), _token, unstakeAmount);
+
+        // emit Unstake(_msgSender(), _token, unstakeAmount);
+    }
+
+    function claimStakingReward(address _token) public {
+        require(tokensData[_token].isActive, "Token not active.");
+        _issueStakingReward(_token, _msgSender(), ["claim staking reward", ""]);
     }
 
     function withdrawStakingReward(address _reward_token, uint256 _amount)
@@ -194,27 +214,7 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         tokensStakersData[_reward_token][_msgSender()]
             .timestampLastUpdated = block.timestamp;
         IERC20(_reward_token).transfer(_msgSender(), _amount);
-        emit WithdrawStakingReward(_msgSender(), _reward_token, _amount);
-    }
-
-    function issueStakingRewards() public onlyOwner {
-        for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
-            address token = tokens[tokenIndex];
-
-            for (
-                uint256 stakerIndex = 0;
-                stakerIndex < stakers.length;
-                stakerIndex++
-            ) {
-                address staker = stakers[stakerIndex];
-
-                _issueStakingReward(
-                    token,
-                    staker,
-                    ["issue staking rewards", ""]
-                );
-            }
-        }
+        // emit WithdrawStakingReward(_msgSender(), _reward_token, _amount);
     }
 
     function _setStakingRewardToken(
@@ -246,54 +246,6 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         return tokensStakersData[_token][_staker].stakingRewardToken;
     }
 
-    function _calculateStakingReward(address _token, address _staker)
-        internal
-        view
-        returns (
-            uint256 stakingRewardValue,
-            uint256 stakingDurationInSeconds,
-            uint256 stakingApr,
-            uint256 stakingBalance,
-            uint256 tokenPrice
-        )
-    {
-        if (!tokenExists(_token)) return (0, 0, 0, 0, 0);
-        if (!stakerExists(_staker)) return (0, 0, 0, 0, 0);
-
-        TokenDetails memory tokenData = tokensData[_token];
-        TokenStakerDetails memory tokenStakerData = tokensStakersData[_token][
-            _staker
-        ];
-        if (tokenStakerData.stakingBalance <= 0) return (0, 0, 0, 0, 0);
-
-        uint256 stakingValue = _fromWei(
-            tokenStakerData.stakingBalance * tokenData.price
-        );
-        uint256 stakingRewardRate = tokenData.stakingApr / 100;
-        uint256 stakingTimestampStarted = tokenStakerData
-            .timestampLastRewarded != 0
-            ? tokenStakerData.timestampLastRewarded
-            : tokenStakerData.timestampAdded;
-        uint256 stakingTimestampEnded = block.timestamp;
-        uint256 stakingDurationInSeconds = _toWei(
-            stakingTimestampEnded - stakingTimestampStarted
-        );
-        uint256 stakingDurationInYears = _secondsToYears(
-            stakingDurationInSeconds
-        );
-        uint256 stakingRewardValue = (stakingValue *
-            stakingRewardRate *
-            stakingDurationInYears) / (10**36);
-
-        return (
-            stakingRewardValue,
-            stakingDurationInSeconds,
-            tokenData.stakingApr,
-            tokenStakerData.stakingBalance,
-            tokenData.price
-        );
-    }
-
     function _issueStakingReward(
         address _token,
         address _staker,
@@ -301,25 +253,9 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
     ) internal {
         if (!tokensData[_token].isActive) return;
         if (!stakersData[_staker].isActive) return;
-
-        TokenDetails memory tokenData = tokensData[_token];
-        TokenStakerDetails memory tokenStakerData = tokensStakersData[_token][
-            _staker
-        ];
-        if (tokenStakerData.stakingBalance <= 0) return;
-
-        if (!tokensData[tokenStakerData.stakingRewardToken].isActive) {
-            if (tokenStakerData.stakingRewardToken == tokenData.rewardToken)
-                return;
-            tokenStakerData.stakingRewardToken = _setStakingRewardToken(
-                _staker,
-                _token,
-                tokenData.rewardToken,
-                false
-            );
-            if (!tokensData[tokenStakerData.stakingRewardToken].isActive)
-                return;
-        }
+        address tokenRewardToken = tokensData[_token].rewardToken;
+        address stakingRewardToken = tokensStakersData[_token][_staker]
+            .stakingRewardToken;
 
         (
             uint256 stakingRewardValue,
@@ -327,46 +263,54 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
             uint256 stakingApr,
             uint256 stakingBalance,
             uint256 tokenPrice
-        ) = _calculateStakingReward(_token, _staker);
+        ) = Lib.calculateStakingReward(this, _token, _staker);
         if (stakingRewardValue == 0) return;
 
-        uint256 stakerRewardTokenRewardValue = getTokenRewardValue(
-            tokenStakerData.stakingRewardToken
+        if (!tokensData[stakingRewardToken].isActive) {
+            if (stakingRewardToken == tokenRewardToken) return;
+            stakingRewardToken = _setStakingRewardToken(
+                _staker,
+                _token,
+                tokenRewardToken,
+                false
+            );
+            if (!tokensData[stakingRewardToken].isActive) return;
+        }
+
+        uint256 stakingRewardTokenRewardValue = getTokenRewardValue(
+            stakingRewardToken
         );
-        if (stakerRewardTokenRewardValue < stakingRewardValue) {
-            if (tokenStakerData.stakingRewardToken == tokenData.rewardToken) {
+        if (stakingRewardTokenRewardValue < stakingRewardValue) {
+            if (stakingRewardToken == tokenRewardToken) {
                 deactivateToken(_token);
                 return;
             }
-            tokenStakerData.stakingRewardToken = _setStakingRewardToken(
+            stakingRewardToken = _setStakingRewardToken(
                 _staker,
                 _token,
-                tokenData.rewardToken,
+                tokenRewardToken,
                 false
             );
-            stakerRewardTokenRewardValue = getTokenRewardValue(
-                tokenStakerData.stakingRewardToken
+            stakingRewardTokenRewardValue = getTokenRewardValue(
+                stakingRewardToken
             );
-            if (stakerRewardTokenRewardValue < stakingRewardValue) {
+            if (stakingRewardTokenRewardValue < stakingRewardValue) {
                 deactivateToken(_token);
                 return;
             }
         }
 
-        uint256 stakingRewardTokenPrice = tokensData[
-            tokenStakerData.stakingRewardToken
-        ].price;
+        uint256 stakingRewardTokenPrice = tokensData[stakingRewardToken].price;
         uint256 stakingRewardTokenAmount = _toWei(stakingRewardValue) /
             stakingRewardTokenPrice;
         if (stakingRewardTokenAmount <= 0) return;
 
-        tokensData[tokenStakerData.stakingRewardToken]
+        tokensData[stakingRewardToken]
             .rewardBalance -= stakingRewardTokenAmount;
-        tokensData[tokenStakerData.stakingRewardToken]
-            .timestampLastUpdated = block.timestamp;
-        tokensStakersData[tokenStakerData.stakingRewardToken][_staker]
+        tokensData[stakingRewardToken].timestampLastUpdated = block.timestamp;
+        tokensStakersData[stakingRewardToken][_staker]
             .rewardBalance += stakingRewardTokenAmount;
-        tokensStakersData[tokenStakerData.stakingRewardToken][_staker]
+        tokensStakersData[stakingRewardToken][_staker]
             .timestampLastUpdated = block.timestamp;
         tokensStakersData[_token][_staker].timestampLastRewarded = block
             .timestamp;
@@ -376,12 +320,12 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
             .stakingRewards
             .length;
         tokenStakerRewardData.staker = _staker;
+        tokenStakerRewardData.rewardToken = stakingRewardToken;
+        tokenStakerRewardData.rewardTokenPrice = stakingRewardTokenPrice;
+        tokenStakerRewardData.rewardTokenAmount = stakingRewardTokenAmount;
         tokenStakerRewardData.stakedToken = _token;
         tokenStakerRewardData.stakedTokenPrice = tokenPrice;
         tokenStakerRewardData.stakedTokenAmount = stakingBalance;
-        tokenStakerRewardData.rewardToken = tokenStakerData.stakingRewardToken;
-        tokenStakerRewardData.rewardTokenPrice = stakingRewardTokenPrice;
-        tokenStakerRewardData.rewardTokenAmount = stakingRewardTokenAmount;
         tokenStakerRewardData.stakingApr = stakingApr;
         tokenStakerRewardData
             .stakingDurationInSeconds = stakingDurationInSeconds;
@@ -391,6 +335,106 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
             tokenStakerRewardData
         );
 
-        emit IssueStakingReward(_staker, _token, tokenStakerRewardData);
+        // emit IssueStakingReward(_staker, _token, tokenStakerRewardData);
     }
+
+    // function _issueStakingReward(
+    //     address _token,
+    //     address _staker,
+    //     string[2] memory _triggeredBy
+    // ) internal {
+    //     if (!tokensData[_token].isActive) return;
+    //     if (!stakersData[_staker].isActive) return;
+
+    //     TokenDetails memory tokenData = tokensData[_token];
+    //     TokenStakerDetails memory tokenStakerData = tokensStakersData[_token][
+    //         _staker
+    //     ];
+    //     if (tokenStakerData.stakingBalance <= 0) return;
+
+    //     if (!tokensData[tokenStakerData.stakingRewardToken].isActive) {
+    //         if (tokenStakerData.stakingRewardToken == tokenData.rewardToken)
+    //             return;
+    //         tokenStakerData.stakingRewardToken = _setStakingRewardToken(
+    //             _staker,
+    //             _token,
+    //             tokenData.rewardToken,
+    //             false
+    //         );
+    //         if (!tokensData[tokenStakerData.stakingRewardToken].isActive)
+    //             return;
+    //     }
+
+    //     (
+    //         uint256 stakingRewardValue,
+    //         uint256 stakingDurationInSeconds,
+    //         uint256 stakingApr,
+    //         uint256 stakingBalance,
+    //         uint256 tokenPrice
+    //     ) = _calculateStakingReward(_token, _staker);
+    //     if (stakingRewardValue == 0) return;
+
+    //     uint256 stakerRewardTokenRewardValue = getTokenRewardValue(
+    //         tokenStakerData.stakingRewardToken
+    //     );
+    //     if (stakerRewardTokenRewardValue < stakingRewardValue) {
+    //         if (tokenStakerData.stakingRewardToken == tokenData.rewardToken) {
+    //             deactivateToken(_token);
+    //             return;
+    //         }
+    //         tokenStakerData.stakingRewardToken = _setStakingRewardToken(
+    //             _staker,
+    //             _token,
+    //             tokenData.rewardToken,
+    //             false
+    //         );
+    //         stakerRewardTokenRewardValue = getTokenRewardValue(
+    //             tokenStakerData.stakingRewardToken
+    //         );
+    //         if (stakerRewardTokenRewardValue < stakingRewardValue) {
+    //             deactivateToken(_token);
+    //             return;
+    //         }
+    //     }
+
+    //     uint256 stakingRewardTokenPrice = tokensData[
+    //         tokenStakerData.stakingRewardToken
+    //     ].price;
+    //     uint256 stakingRewardTokenAmount = _toWei(stakingRewardValue) /
+    //         stakingRewardTokenPrice;
+    //     if (stakingRewardTokenAmount <= 0) return;
+
+    //     tokensData[tokenStakerData.stakingRewardToken]
+    //         .rewardBalance -= stakingRewardTokenAmount;
+    //     tokensData[tokenStakerData.stakingRewardToken]
+    //         .timestampLastUpdated = block.timestamp;
+    //     tokensStakersData[tokenStakerData.stakingRewardToken][_staker]
+    //         .rewardBalance += stakingRewardTokenAmount;
+    //     tokensStakersData[tokenStakerData.stakingRewardToken][_staker]
+    //         .timestampLastUpdated = block.timestamp;
+    //     tokensStakersData[_token][_staker].timestampLastRewarded = block
+    //         .timestamp;
+
+    //     TokenStakerRewardDetails memory tokenStakerRewardData;
+    //     tokenStakerRewardData.id = tokensStakersData[_token][_staker]
+    //         .stakingRewards
+    //         .length;
+    //     tokenStakerRewardData.staker = _staker;
+    //     tokenStakerRewardData.rewardToken = tokenStakerData.stakingRewardToken;
+    //     tokenStakerRewardData.rewardTokenPrice = stakingRewardTokenPrice;
+    //     tokenStakerRewardData.rewardTokenAmount = stakingRewardTokenAmount;
+    //     tokenStakerRewardData.stakedToken = _token;
+    //     tokenStakerRewardData.stakedTokenPrice = tokenPrice;
+    //     tokenStakerRewardData.stakedTokenAmount = stakingBalance;
+    //     tokenStakerRewardData.stakingApr = stakingApr;
+    //     tokenStakerRewardData
+    //         .stakingDurationInSeconds = stakingDurationInSeconds;
+    //     tokenStakerRewardData.triggeredBy = _triggeredBy;
+    //     tokenStakerRewardData.timestampAdded = block.timestamp;
+    //     tokensStakersData[_token][_staker].stakingRewards.push(
+    //         tokenStakerRewardData
+    //     );
+
+    //     // emit IssueStakingReward(_staker, _token, tokenStakerRewardData);
+    // }
 }
