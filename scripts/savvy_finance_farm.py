@@ -3,6 +3,7 @@ from brownie import (
     TransparentUpgradeableProxy,
     SavvyFinance,
     SavvyFinanceUpgradeable,
+    SavvyFinanceFarmLibrary,
     SavvyFinanceFarm,
     Contract,
     network,
@@ -69,6 +70,13 @@ def deploy_savvy_finance_upgradeable(account=get_account()):
     return SavvyFinanceUpgradeable.deploy({"from": account})
 
 
+def deploy_savvy_finance_farm_library(account=get_account()):
+    return SavvyFinanceFarmLibrary.deploy(
+        {"from": account},
+        publish_source=config["networks"][network.show_active()].get("verify", False),
+    )
+
+
 def deploy_savvy_finance_farm(account=get_account()):
     return SavvyFinanceFarm.deploy(
         {"from": account},
@@ -76,7 +84,7 @@ def deploy_savvy_finance_farm(account=get_account()):
     )
 
 
-def erc20_transfer_token(token_contract, to, amount, account=get_account()):
+def erc20_token_transfer(token_contract, to, amount, account=get_account()):
     amount2 = to_wei(amount)
     token_contract.transfer(to, amount2, {"from": account}).wait(1)
     print(
@@ -451,6 +459,7 @@ def get_contracts(deploy=None):
         savvy_finance_proxy = deploy_transparent_upgradeable_proxy(
             proxy_admin, savvy_finance, web3.toWei(1000000, "ether")
         )
+        savvy_finance_farm_library = deploy_savvy_finance_farm_library()
         savvy_finance_farm = deploy_savvy_finance_farm()
         savvy_finance_farm_proxy = deploy_transparent_upgradeable_proxy(
             proxy_admin, savvy_finance_farm
@@ -459,6 +468,7 @@ def get_contracts(deploy=None):
         proxy_admin = ProxyAdmin[-1]
         savvy_finance = SavvyFinanceUpgradeable[-1]
         savvy_finance_proxy = TransparentUpgradeableProxy[-2]
+        savvy_finance_farm_library = deploy_savvy_finance_farm_library()
         savvy_finance_farm = deploy_savvy_finance_farm()
         savvy_finance_farm_proxy = deploy_transparent_upgradeable_proxy(
             proxy_admin, savvy_finance_farm
@@ -467,6 +477,7 @@ def get_contracts(deploy=None):
         proxy_admin = ProxyAdmin[-1]
         savvy_finance = SavvyFinanceUpgradeable[-1]
         savvy_finance_proxy = TransparentUpgradeableProxy[-2]
+        savvy_finance_farm_library = SavvyFinanceFarmLibrary[-1]
         savvy_finance_farm = SavvyFinanceFarm[-1]
         savvy_finance_farm_proxy = TransparentUpgradeableProxy[-1]
 
@@ -509,8 +520,8 @@ def main():
 
     account1 = get_account(1)
     account2 = get_account(2)
-    erc20_transfer_token(proxy_savvy_finance, account1.address, 10000)
-    erc20_transfer_token(proxy_savvy_finance, account2.address, 10000)
+    erc20_token_transfer(proxy_savvy_finance, account1.address, 10000)
+    erc20_token_transfer(proxy_savvy_finance, account2.address, 10000)
 
     set_token_categories(proxy_savvy_finance_farm, ["DEFAULT", "LP"])
     add_tokens(proxy_savvy_finance_farm, tokens, account1)
