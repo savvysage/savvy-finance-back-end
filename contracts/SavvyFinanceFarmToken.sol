@@ -30,9 +30,9 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         uint256 rewardBalance;
         uint256 stakingBalance;
         uint256 stakingApr;
-        TokenFeesDetails fees;
         address rewardToken;
         address admin;
+        TokenFeesDetails fees;
         uint256 timestampAdded;
         uint256 timestampLastUpdated;
     }
@@ -77,6 +77,15 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
+    function setTokenAdmin(address _token, address _admin) public onlyOwner {
+        require(tokenExists(_token), "Token does not exist.");
+        if (tokensData[_token].admin != owner())
+            revokeRole(_toRole(_token), tokensData[_token].admin);
+        tokensData[_token].admin = _admin;
+        tokensData[_token].timestampLastUpdated = block.timestamp;
+        grantRole(_toRole(_token), tokensData[_token].admin);
+    }
+
     function setTokenDevDepositWithdrawFees(
         address _token,
         uint256 _devDepositFee,
@@ -98,15 +107,6 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         _setTokenStakeUnstakeFees(_token, _devStakeFee, _devUnstakeFee, "dev");
     }
 
-    function setTokenAdmin(address _token, address _admin) public onlyOwner {
-        require(tokenExists(_token), "Token does not exist.");
-        if (tokensData[_token].admin != owner())
-            revokeRole(_toRole(_token), tokensData[_token].admin);
-        tokensData[_token].admin = _admin;
-        tokensData[_token].timestampLastUpdated = block.timestamp;
-        grantRole(_toRole(_token), tokensData[_token].admin);
-    }
-
     function verifyToken(address _token) public onlyOwner {
         require(tokenExists(_token), "Token does not exist.");
         tokensData[_token].isVerified = true;
@@ -124,7 +124,7 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         uint256 _stakingApr,
         uint256 _adminStakeFee,
         uint256 _adminUnstakeFee,
-        address _reward_token
+        address _rewardToken
     ) public {
         require(!tokenExists(_token), "Token already exists.");
         _setupRole(_toRole(_token), owner());
@@ -132,8 +132,8 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         // uint256 index = tokens.length;
         tokens.push(_token);
         // tokensData[_token].index = index;
-        tokensData[_token].name = _name;
         tokensData[_token].category = _category;
+        tokensData[_token].admin = _msgSender();
         tokensData[_token].fees.devDepositFee = configData
             .defaultDepositWithdrawFee;
         tokensData[_token].fees.devWithdrawFee = configData
@@ -141,14 +141,11 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         tokensData[_token].fees.devStakeFee = configData.defaultStakeUnstakeFee;
         tokensData[_token].fees.devUnstakeFee = configData
             .defaultStakeUnstakeFee;
-        tokensData[_token].admin = _msgSender();
         tokensData[_token].timestampAdded = block.timestamp;
+        setTokenName(_token, _name);
         setTokenStakingApr(_token, _stakingApr);
+        setTokenRewardToken(_token, _rewardToken);
         setTokenAdminStakeUnstakeFees(_token, _adminStakeFee, _adminUnstakeFee);
-        setTokenRewardToken(
-            _token,
-            _reward_token == address(0x0) ? _token : _reward_token
-        );
     }
 
     function activateToken(address _token) public onlyRole(_toRole(_token)) {
@@ -180,6 +177,17 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         onlyRole(_toRole(_token))
     {
         require(tokenExists(_token), "Token does not exist.");
+        require(
+            bytes(_name).length >= configData.minimumTokenNameLength &&
+                bytes(_name).length <= configData.maximumTokenNameLength,
+            string.concat(
+                "Token name length must be between ",
+                Strings.toString(configData.minimumTokenNameLength),
+                " and ",
+                Strings.toString(configData.maximumTokenNameLength),
+                "."
+            )
+        );
         tokensData[_token].name = _name;
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
@@ -213,6 +221,17 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
+    function setTokenRewardToken(address _token, address _reward_token)
+        public
+        onlyRole(_toRole(_token))
+        onlyRole(_toRole(_reward_token))
+    {
+        require(tokenExists(_token), "Token does not exist.");
+        require(tokenExists(_reward_token), "Reward token does not exist.");
+        tokensData[_token].rewardToken = _reward_token;
+        tokensData[_token].timestampLastUpdated = block.timestamp;
+    }
+
     function setTokenAdminStakeUnstakeFees(
         address _token,
         uint256 _adminStakeFee,
@@ -224,17 +243,6 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
             _adminUnstakeFee,
             "admin"
         );
-    }
-
-    function setTokenRewardToken(address _token, address _reward_token)
-        public
-        onlyRole(_toRole(_token))
-        onlyRole(_toRole(_reward_token))
-    {
-        require(tokenExists(_token), "Token does not exist.");
-        require(tokenExists(_reward_token), "Reward token does not exist.");
-        tokensData[_token].rewardToken = _reward_token;
-        tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
     function enableTokenMultiTokenRewards(address _token)
@@ -264,8 +272,20 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
             IERC20(_token).balanceOf(_msgSender()) >= _amount,
             "Insufficient wallet balance."
         );
-        IERC20(_token).transferFrom(_msgSender(), address(this), _amount);
-        tokensData[_token].rewardBalance += _amount;
+
+        (
+            uint256 devDepositFeeAmount,
+            uint256 adminDepositFeeAmount
+        ) = getTokenFeeAmounts(_token, _amount, "deposit");
+        if (devDepositFeeAmount != 0)
+            IERC20(_token).transferFrom(
+                _msgSender(),
+                configData.developmentWallet,
+                devDepositFeeAmount
+            );
+        uint256 depositAmount = _amount - devDepositFeeAmount;
+        IERC20(_token).transferFrom(_msgSender(), address(this), depositAmount);
+        tokensData[_token].rewardBalance += depositAmount;
     }
 
     function withdrawToken(address _token, uint256 _amount)
@@ -278,8 +298,19 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
             tokensData[_token].rewardBalance >= _amount,
             "Insufficient reward balance."
         );
+
         tokensData[_token].rewardBalance -= _amount;
-        IERC20(_token).transfer(_msgSender(), _amount);
+        (
+            uint256 devWithdrawFeeAmount,
+            uint256 adminWithdrawFeeAmount
+        ) = getTokenFeeAmounts(_token, _amount, "withdraw");
+        if (devWithdrawFeeAmount != 0)
+            IERC20(_token).transfer(
+                configData.developmentWallet,
+                devWithdrawFeeAmount
+            );
+        uint256 withdrawAmount = _amount - devWithdrawFeeAmount;
+        IERC20(_token).transfer(_msgSender(), withdrawAmount);
     }
 
     function getTokenFeeAmounts(
@@ -297,10 +328,16 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         if (
             keccak256(abi.encodePacked(_action)) ==
             keccak256(abi.encodePacked("deposit"))
-        ) {} else if (
+        ) {
+            devFee = tokensData[_token].fees.devDepositFee;
+            devFeeAmount = _calculatePercentage(devFee, _amount);
+        } else if (
             keccak256(abi.encodePacked(_action)) ==
             keccak256(abi.encodePacked("withdraw"))
-        ) {} else if (
+        ) {
+            devFee = tokensData[_token].fees.devWithdrawFee;
+            devFeeAmount = _calculatePercentage(devFee, _amount);
+        } else if (
             keccak256(abi.encodePacked(_action)) ==
             keccak256(abi.encodePacked("stake"))
         ) {

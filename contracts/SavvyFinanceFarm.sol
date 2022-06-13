@@ -166,11 +166,8 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         }
 
         tokensStakersData[_token][_msgSender()].stakingBalance -= _amount;
-        tokensStakersData[_token][_msgSender()].timestampAdded == 0
-            ? tokensStakersData[_token][_msgSender()].timestampAdded = block
-                .timestamp
-            : tokensStakersData[_token][_msgSender()]
-                .timestampLastUpdated = block.timestamp;
+        tokensStakersData[_token][_msgSender()].timestampLastUpdated = block
+            .timestamp;
         tokensData[_token].stakingBalance -= _amount;
         tokensData[_token].timestampLastUpdated = block.timestamp;
 
@@ -337,104 +334,4 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
 
         // emit IssueStakingReward(_staker, _token, tokenStakerRewardData);
     }
-
-    // function _issueStakingReward(
-    //     address _token,
-    //     address _staker,
-    //     string[2] memory _triggeredBy
-    // ) internal {
-    //     if (!tokensData[_token].isActive) return;
-    //     if (!stakersData[_staker].isActive) return;
-
-    //     TokenDetails memory tokenData = tokensData[_token];
-    //     TokenStakerDetails memory tokenStakerData = tokensStakersData[_token][
-    //         _staker
-    //     ];
-    //     if (tokenStakerData.stakingBalance <= 0) return;
-
-    //     if (!tokensData[tokenStakerData.stakingRewardToken].isActive) {
-    //         if (tokenStakerData.stakingRewardToken == tokenData.rewardToken)
-    //             return;
-    //         tokenStakerData.stakingRewardToken = _setStakingRewardToken(
-    //             _staker,
-    //             _token,
-    //             tokenData.rewardToken,
-    //             false
-    //         );
-    //         if (!tokensData[tokenStakerData.stakingRewardToken].isActive)
-    //             return;
-    //     }
-
-    //     (
-    //         uint256 stakingRewardValue,
-    //         uint256 stakingDurationInSeconds,
-    //         uint256 stakingApr,
-    //         uint256 stakingBalance,
-    //         uint256 tokenPrice
-    //     ) = _calculateStakingReward(_token, _staker);
-    //     if (stakingRewardValue == 0) return;
-
-    //     uint256 stakerRewardTokenRewardValue = getTokenRewardValue(
-    //         tokenStakerData.stakingRewardToken
-    //     );
-    //     if (stakerRewardTokenRewardValue < stakingRewardValue) {
-    //         if (tokenStakerData.stakingRewardToken == tokenData.rewardToken) {
-    //             deactivateToken(_token);
-    //             return;
-    //         }
-    //         tokenStakerData.stakingRewardToken = _setStakingRewardToken(
-    //             _staker,
-    //             _token,
-    //             tokenData.rewardToken,
-    //             false
-    //         );
-    //         stakerRewardTokenRewardValue = getTokenRewardValue(
-    //             tokenStakerData.stakingRewardToken
-    //         );
-    //         if (stakerRewardTokenRewardValue < stakingRewardValue) {
-    //             deactivateToken(_token);
-    //             return;
-    //         }
-    //     }
-
-    //     uint256 stakingRewardTokenPrice = tokensData[
-    //         tokenStakerData.stakingRewardToken
-    //     ].price;
-    //     uint256 stakingRewardTokenAmount = _toWei(stakingRewardValue) /
-    //         stakingRewardTokenPrice;
-    //     if (stakingRewardTokenAmount <= 0) return;
-
-    //     tokensData[tokenStakerData.stakingRewardToken]
-    //         .rewardBalance -= stakingRewardTokenAmount;
-    //     tokensData[tokenStakerData.stakingRewardToken]
-    //         .timestampLastUpdated = block.timestamp;
-    //     tokensStakersData[tokenStakerData.stakingRewardToken][_staker]
-    //         .rewardBalance += stakingRewardTokenAmount;
-    //     tokensStakersData[tokenStakerData.stakingRewardToken][_staker]
-    //         .timestampLastUpdated = block.timestamp;
-    //     tokensStakersData[_token][_staker].timestampLastRewarded = block
-    //         .timestamp;
-
-    //     TokenStakerRewardDetails memory tokenStakerRewardData;
-    //     tokenStakerRewardData.id = tokensStakersData[_token][_staker]
-    //         .stakingRewards
-    //         .length;
-    //     tokenStakerRewardData.staker = _staker;
-    //     tokenStakerRewardData.rewardToken = tokenStakerData.stakingRewardToken;
-    //     tokenStakerRewardData.rewardTokenPrice = stakingRewardTokenPrice;
-    //     tokenStakerRewardData.rewardTokenAmount = stakingRewardTokenAmount;
-    //     tokenStakerRewardData.stakedToken = _token;
-    //     tokenStakerRewardData.stakedTokenPrice = tokenPrice;
-    //     tokenStakerRewardData.stakedTokenAmount = stakingBalance;
-    //     tokenStakerRewardData.stakingApr = stakingApr;
-    //     tokenStakerRewardData
-    //         .stakingDurationInSeconds = stakingDurationInSeconds;
-    //     tokenStakerRewardData.triggeredBy = _triggeredBy;
-    //     tokenStakerRewardData.timestampAdded = block.timestamp;
-    //     tokensStakersData[_token][_staker].stakingRewards.push(
-    //         tokenStakerRewardData
-    //     );
-
-    //     // emit IssueStakingReward(_staker, _token, tokenStakerRewardData);
-    // }
 }

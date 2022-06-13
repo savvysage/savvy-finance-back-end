@@ -31,7 +31,7 @@ contract SavvyFinanceFarmBase is Ownable, AccessControl {
     // constructor() {
     //     configData.developmentWallet = _msgSender();
     //     configData.minimumTokenNameLength = 2;
-    //     configData.maximumTokenNameLength = 10;
+    //     configData.maximumTokenNameLength = 15;
     //     configData.minimumStakingApr = _toWei(50);
     //     configData.maximumStakingApr = _toWei(1000);
     //     configData.defaultStakingApr = _toWei(100);
@@ -47,7 +47,7 @@ contract SavvyFinanceFarmBase is Ownable, AccessControl {
     function initialize() external {
         configData.developmentWallet = _msgSender();
         configData.minimumTokenNameLength = 2;
-        configData.maximumTokenNameLength = 10;
+        configData.maximumTokenNameLength = 15;
         configData.minimumStakingApr = _toWei(50);
         configData.maximumStakingApr = _toWei(1000);
         configData.defaultStakingApr = _toWei(100);

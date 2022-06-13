@@ -119,14 +119,14 @@ def get_tokens_data(contract, tokens=None, account=get_account()):
             "rewardBalance": float(from_wei(token_data[6])),
             "stakingBalance": float(from_wei(token_data[7])),
             "stakingApr": float(from_wei(token_data[8])),
-            "devDepositFee": float(from_wei(token_data[9][0])),
-            "devWithdrawFee": float(from_wei(token_data[9][1])),
-            "devStakeFee": float(from_wei(token_data[9][2])),
-            "devUnstakeFee": float(from_wei(token_data[9][3])),
-            "adminStakeFee": float(from_wei(token_data[9][4])),
-            "adminUnstakeFee": float(from_wei(token_data[9][5])),
-            "rewardToken": token_data[10],
-            "admin": token_data[11],
+            "rewardToken": token_data[9],
+            "admin": token_data[10],
+            "devDepositFee": float(from_wei(token_data[11][0])),
+            "devWithdrawFee": float(from_wei(token_data[11][1])),
+            "devStakeFee": float(from_wei(token_data[11][2])),
+            "devUnstakeFee": float(from_wei(token_data[11][3])),
+            "adminStakeFee": float(from_wei(token_data[11][4])),
+            "adminUnstakeFee": float(from_wei(token_data[11][5])),
             "timestampAdded": token_data[12],
             "timestampLastUpdated": token_data[13],
         }
@@ -224,7 +224,7 @@ def add_tokens(contract, tokens=get_tokens(), account=get_account()):
         token_staking_apr = to_wei(100)
         token_admin_stake_fee = to_wei(1)
         token_admin_unstake_fee = to_wei(1)
-        token_reward_token = get_address("zero")
+        token_reward_token = token
         contract.addToken(
             token,
             token_name_2,
@@ -382,6 +382,14 @@ def unstake_token(contract, token_contract, amount, account=get_account()):
     amount2 = web3.toWei(amount, "ether")
     contract.unstakeToken(token_contract.address, amount2, {"from": account}).wait(1)
     print("Unstaked " + str(amount) + " " + token_contract.symbol() + ".", "\n\n")
+
+
+def claim_staking_reward(contract, token_contract, account=get_account()):
+    contract.claimStakingReward(token_contract.address, {"from": account}).wait(1)
+    print(
+        "Claimed " + token_contract.symbol() + " staking reward.",
+        "\n\n",
+    )
 
 
 def withdraw_staking_reward(
@@ -547,7 +555,7 @@ def main():
     #####
     deposit_token(proxy_savvy_finance_farm, proxy_savvy_finance, 2000, account1)
     withdraw_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account1)
-    # exclude_from_fees(proxy_savvy_finance_farm, get_account().address)
+    exclude_from_fees(proxy_savvy_finance_farm, account2)
     # exclude_from_token_admin_fees(
     #     proxy_savvy_finance_farm,
     #     proxy_savvy_finance,
@@ -555,9 +563,10 @@ def main():
     #     account,
     # )
     stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account2)
-    stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account2)
-    unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account2)
-    unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500, account2)
+    # claim_staking_reward(proxy_savvy_finance_farm, proxy_savvy_finance, account2)
+    # stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account2)
+    # unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account2)
+    # unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500, account2)
     # withdraw_staking_reward(proxy_savvy_finance_farm, proxy_savvy_finance, 2)
     # stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
     # withdraw_staking_reward(proxy_savvy_finance_farm, proxy_savvy_finance, 0.5)
