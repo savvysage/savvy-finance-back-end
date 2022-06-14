@@ -503,7 +503,7 @@ def main():
     # SavvyFinanceUpgradeable.publish_source(contract)
 
     proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm = get_contracts("all")
-    proxy_savvy_finance_farm = upgrade_savvy_finance_farm()
+    # proxy_savvy_finance_farm = upgrade_savvy_finance_farm()
 
     #####
     # print(proxy_admin.owner(), get_account().address)

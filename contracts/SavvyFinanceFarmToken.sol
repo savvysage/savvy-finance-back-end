@@ -134,13 +134,10 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         // tokensData[_token].index = index;
         tokensData[_token].category = _category;
         tokensData[_token].admin = _msgSender();
-        tokensData[_token].fees.devDepositFee = configData
-            .defaultDepositWithdrawFee;
-        tokensData[_token].fees.devWithdrawFee = configData
-            .defaultDepositWithdrawFee;
-        tokensData[_token].fees.devStakeFee = configData.defaultStakeUnstakeFee;
-        tokensData[_token].fees.devUnstakeFee = configData
-            .defaultStakeUnstakeFee;
+        tokensData[_token].fees.devDepositFee = 1; // in wei
+        tokensData[_token].fees.devWithdrawFee = 1; // in wei
+        tokensData[_token].fees.devStakeFee = 1; // in wei
+        tokensData[_token].fees.devUnstakeFee = 1; // in wei
         tokensData[_token].timestampAdded = block.timestamp;
         setTokenName(_token, _name);
         setTokenStakingApr(_token, _stakingApr);
@@ -322,39 +319,45 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         require(_amount > 0, "Amount must be greater than zero.");
 
         uint256 devFee;
-        uint256 devFeeAmount;
         uint256 adminFee;
-        uint256 adminFeeAmount;
         if (
             keccak256(abi.encodePacked(_action)) ==
             keccak256(abi.encodePacked("deposit"))
         ) {
-            devFee = tokensData[_token].fees.devDepositFee;
-            devFeeAmount = _calculatePercentage(devFee, _amount);
+            devFee = (tokensData[_token].fees.devDepositFee > 1) /* in wei */
+                ? tokensData[_token].fees.devDepositFee
+                : configData.defaultDepositWithdrawFee;
         } else if (
             keccak256(abi.encodePacked(_action)) ==
             keccak256(abi.encodePacked("withdraw"))
         ) {
-            devFee = tokensData[_token].fees.devWithdrawFee;
-            devFeeAmount = _calculatePercentage(devFee, _amount);
+            devFee = (tokensData[_token].fees.devWithdrawFee > 1) /* in wei */
+                ? tokensData[_token].fees.devWithdrawFee
+                : configData.defaultDepositWithdrawFee;
         } else if (
             keccak256(abi.encodePacked(_action)) ==
             keccak256(abi.encodePacked("stake"))
         ) {
-            devFee = tokensData[_token].fees.devStakeFee;
-            devFeeAmount = _calculatePercentage(devFee, _amount);
-            adminFee = tokensData[_token].fees.adminStakeFee;
-            adminFeeAmount = _calculatePercentage(adminFee, _amount);
+            devFee = (tokensData[_token].fees.devStakeFee > 1) /* in wei */
+                ? tokensData[_token].fees.devStakeFee
+                : configData.defaultStakeUnstakeFee;
+            adminFee = (tokensData[_token].fees.adminStakeFee > 1) /* in wei */
+                ? tokensData[_token].fees.adminStakeFee
+                : configData.defaultStakeUnstakeFee;
         } else if (
             keccak256(abi.encodePacked(_action)) ==
             keccak256(abi.encodePacked("unstake"))
         ) {
-            devFee = tokensData[_token].fees.devUnstakeFee;
-            devFeeAmount = _calculatePercentage(devFee, _amount);
-            adminFee = tokensData[_token].fees.adminUnstakeFee;
-            adminFeeAmount = _calculatePercentage(adminFee, _amount);
+            devFee = (tokensData[_token].fees.devUnstakeFee > 1) /* in wei */
+                ? tokensData[_token].fees.devUnstakeFee
+                : configData.defaultStakeUnstakeFee;
+            adminFee = (tokensData[_token].fees.adminUnstakeFee > 1) /* in wei */
+                ? tokensData[_token].fees.adminUnstakeFee
+                : configData.defaultStakeUnstakeFee;
         }
 
+        uint256 devFeeAmount = _calculatePercentage(devFee, _amount);
+        uint256 adminFeeAmount = _calculatePercentage(adminFee, _amount);
         bool isExcludedFromFee = isExcludedFromFees[_msgSender()];
         bool isExcludedFromAdminFee = isExcludedFromTokenAdminFees[_token][
             _msgSender()
