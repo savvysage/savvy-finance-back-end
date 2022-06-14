@@ -21,7 +21,9 @@ from scripts.common import (
     get_lp_token_price,
     get_contract_address,
     get_contract,
-    encode_function_data,
+    deploy_proxy_admin,
+    deploy_transparent_upgradeable_proxy,
+    upgrade_transparent_upgradeable_proxy,
 )
 import shutil, yaml, json
 
@@ -34,30 +36,6 @@ def get_tokens():
     }
 
 
-def deploy_proxy_admin(account=get_account()):
-    return ProxyAdmin.deploy({"from": account})
-
-
-def deploy_transparent_upgradeable_proxy(
-    proxy_admin, contract, *args, account=get_account()
-):
-    # If we want an intializer function we can add
-    # `1, initializer=box.store`
-    # to simulate the initializer being the `store` function
-    # with a `newValue` of 1
-    # box_encoded_initializer_function = encode_function_data()
-    # box_encoded_initializer_function = encode_function_data(1, initializer=box.store)
-    encoded_initializer_function = encode_function_data(
-        *args, initializer=contract.initialize
-    )
-    return TransparentUpgradeableProxy.deploy(
-        contract.address,
-        proxy_admin.address,
-        encoded_initializer_function,
-        {"from": account},
-    )
-
-
 def deploy_savvy_finance(account=get_account()):
     return SavvyFinance.deploy(
         web3.toWei(1000000, "ether"),
@@ -67,7 +45,10 @@ def deploy_savvy_finance(account=get_account()):
 
 
 def deploy_savvy_finance_upgradeable(account=get_account()):
-    return SavvyFinanceUpgradeable.deploy({"from": account})
+    return SavvyFinanceUpgradeable.deploy(
+        {"from": account},
+        publish_source=config["networks"][network.show_active()].get("verify", False),
+    )
 
 
 def deploy_savvy_finance_farm_library(account=get_account()):
@@ -460,6 +441,22 @@ def update_front_end():
     print("Front end updated!")
 
 
+def upgrade_savvy_finance_farm():
+    proxy_admin = ProxyAdmin[-1]
+    savvy_finance_farm_proxy = TransparentUpgradeableProxy[-1]
+    savvy_finance_farm_library = deploy_savvy_finance_farm_library()
+    savvy_finance_farm = deploy_savvy_finance_farm()
+    upgrade_transparent_upgradeable_proxy(
+        proxy_admin, savvy_finance_farm_proxy, savvy_finance_farm
+    )
+    proxy_savvy_finance_farm = Contract.from_abi(
+        savvy_finance_farm._name,
+        savvy_finance_farm_proxy.address,
+        savvy_finance_farm.abi,
+    )
+    return proxy_savvy_finance_farm
+
+
 def get_contracts(deploy=None):
     if deploy == "all":
         proxy_admin = deploy_proxy_admin()
@@ -506,6 +503,7 @@ def main():
     # SavvyFinanceUpgradeable.publish_source(contract)
 
     proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm = get_contracts("all")
+    proxy_savvy_finance_farm = upgrade_savvy_finance_farm()
 
     #####
     # print(proxy_admin.owner(), get_account().address)

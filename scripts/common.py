@@ -4,6 +4,8 @@ from brownie import (
     MockOracle,
     MockV3Aggregator,
     VRFCoordinatorV2Mock,
+    ProxyAdmin,
+    TransparentUpgradeableProxy,
     # Contract,
     network,
     accounts,
@@ -195,6 +197,60 @@ def encode_function_data(*args, initializer=None):
         return initializer.encode_input(*args)
 
     return b""
+
+
+def deploy_proxy_admin(account=get_account()):
+    return ProxyAdmin.deploy(
+        {"from": account},
+        publish_source=config["networks"][network.show_active()].get("verify", False),
+    )
+
+
+def deploy_transparent_upgradeable_proxy(
+    proxy_admin, contract, *args, account=get_account()
+):
+    # If we want an intializer function we can add
+    # `1, initializer=box.store`
+    # to simulate the initializer being the `store` function
+    # with a `newValue` of 1
+    # box_encoded_initializer_function = encode_function_data()
+    # box_encoded_initializer_function = encode_function_data(1, initializer=box.store)
+    encoded_initializer_function = encode_function_data(
+        *args, initializer=contract.initialize
+    )
+    return TransparentUpgradeableProxy.deploy(
+        contract.address,
+        proxy_admin.address,
+        encoded_initializer_function,
+        {"from": account},
+        publish_source=config["networks"][network.show_active()].get("verify", False),
+    )
+
+
+def upgrade_transparent_upgradeable_proxy(
+    proxy_admin, proxy_contract, new_contract, *args, account=get_account()
+):
+    if args:
+        # If we want an intializer function we can add
+        # `1, initializer=box.store`
+        # to simulate the initializer being the `store` function
+        # with a `newValue` of 1
+        # box_encoded_initializer_function = encode_function_data()
+        # box_encoded_initializer_function = encode_function_data(1, initializer=box.store)
+        encoded_initializer_function = encode_function_data(
+            *args, initializer=new_contract.initialize
+        )
+        return proxy_admin.upgradeAndCall(
+            proxy_contract.address,
+            new_contract.address,
+            encoded_initializer_function,
+            {"from": account},
+        )
+    return proxy_admin.upgrade(
+        proxy_contract.address,
+        new_contract.address,
+        {"from": account},
+    )
 
 
 def upgrade(
