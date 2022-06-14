@@ -553,23 +553,22 @@ def main():
     # activate_tokens(proxy_savvy_finance_farm, {"svf": tokens["svf"]})
     # set_tokens_prices(proxy_savvy_finance_farm, {"svf": tokens["svf"]})
     #####
+    exclude_from_fees(proxy_savvy_finance_farm, account1)
     deposit_token(proxy_savvy_finance_farm, proxy_savvy_finance, 2000, account1)
     withdraw_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account1)
     exclude_from_fees(proxy_savvy_finance_farm, account2)
     # exclude_from_token_admin_fees(
     #     proxy_savvy_finance_farm,
     #     proxy_savvy_finance,
-    #     get_account().address,
-    #     account,
+    #     account2,
+    #     account1,
     # )
     stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account2)
     # claim_staking_reward(proxy_savvy_finance_farm, proxy_savvy_finance, account2)
-    # stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account2)
-    # unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account2)
-    # unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500, account2)
-    # withdraw_staking_reward(proxy_savvy_finance_farm, proxy_savvy_finance, 2)
-    # stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500)
-    # withdraw_staking_reward(proxy_savvy_finance_farm, proxy_savvy_finance, 0.5)
+    stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account2)
+    unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500, account2)
+    unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500, account2)
+    # withdraw_staking_reward(proxy_savvy_finance_farm, proxy_savvy_finance, 2, account2)
 
     #####
     # staking_reward_value = proxy_savvy_finance_farm._calculateStakingReward(
@@ -591,8 +590,8 @@ def main():
     print_json(get_stakers_data(proxy_savvy_finance_farm))
     print_json(get_tokens_stakers_data(proxy_savvy_finance_farm))
     print(from_wei(proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address)))
-    print(from_wei(proxy_savvy_finance.balanceOf(account2.address)))
     print(from_wei(proxy_savvy_finance.balanceOf(account1.address)))
+    print(from_wei(proxy_savvy_finance.balanceOf(account2.address)))
     print(from_wei(proxy_savvy_finance.balanceOf(get_account().address)))
 
     #####

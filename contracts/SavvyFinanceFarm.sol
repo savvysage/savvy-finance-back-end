@@ -250,9 +250,6 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
     ) internal {
         if (!tokensData[_token].isActive) return;
         if (!stakersData[_staker].isActive) return;
-        address tokenRewardToken = tokensData[_token].rewardToken;
-        address stakingRewardToken = tokensStakersData[_token][_staker]
-            .stakingRewardToken;
 
         (
             uint256 stakingRewardValue,
@@ -263,52 +260,64 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         ) = Lib.calculateStakingReward(this, _token, _staker);
         if (stakingRewardValue == 0) return;
 
-        if (!tokensData[stakingRewardToken].isActive) {
-            if (stakingRewardToken == tokenRewardToken) return;
-            stakingRewardToken = _setStakingRewardToken(
-                _staker,
-                _token,
-                tokenRewardToken,
-                false
-            );
-            if (!tokensData[stakingRewardToken].isActive) return;
-        }
-
-        uint256 stakingRewardTokenRewardValue = getTokenRewardValue(
-            stakingRewardToken
+        address tokenRewardToken = tokensData[_token].rewardToken;
+        if (!tokensData[tokenRewardToken].isActive) return;
+        uint256 tokenRewardTokenRewardValue = getTokenRewardValue(
+            tokenRewardToken
         );
-        if (stakingRewardTokenRewardValue < stakingRewardValue) {
-            if (stakingRewardToken == tokenRewardToken) {
-                deactivateToken(_token);
-                return;
-            }
-            stakingRewardToken = _setStakingRewardToken(
-                _staker,
-                _token,
-                tokenRewardToken,
-                false
-            );
-            stakingRewardTokenRewardValue = getTokenRewardValue(
-                stakingRewardToken
-            );
-            if (stakingRewardTokenRewardValue < stakingRewardValue) {
-                deactivateToken(_token);
-                return;
+        if (tokenRewardTokenRewardValue < stakingRewardValue) {
+            deactivateToken(_token);
+            return;
+        }
+
+        address rewardToken = tokenRewardToken;
+        uint256 rewardTokenPrice = tokensData[rewardToken].price;
+        uint256 rewardTokenAmount = _toWei(stakingRewardValue) /
+            rewardTokenPrice;
+
+        {
+            // if staking reward token is different from token reward token,
+            // staking reward token admin receives the reward in token reward token
+            // to pay back equivalent in staking reward token, basically swapping
+            address stakingRewardToken = tokensStakersData[_token][_staker]
+                .stakingRewardToken;
+            if (stakingRewardToken != rewardToken) {
+                if (tokensData[stakingRewardToken].isActive) {
+                    uint256 stakingRewardTokenRewardValue = getTokenRewardValue(
+                        stakingRewardToken
+                    );
+                    if (!(stakingRewardTokenRewardValue < stakingRewardValue)) {
+                        // staking reward token admin receives the reward
+                        // in token reward token
+                        address stakingRewardTokenAdmin = tokensData[
+                            stakingRewardToken
+                        ].admin;
+                        tokensData[rewardToken]
+                            .rewardBalance -= rewardTokenAmount;
+                        tokensData[rewardToken].timestampLastUpdated = block
+                            .timestamp;
+                        tokensStakersData[rewardToken][stakingRewardTokenAdmin]
+                            .rewardBalance += rewardTokenAmount;
+                        tokensStakersData[rewardToken][stakingRewardTokenAdmin]
+                            .timestampLastUpdated = block.timestamp;
+
+                        // change reward token to staking reward token for payback
+                        rewardToken = stakingRewardToken;
+                        rewardTokenPrice = tokensData[rewardToken].price;
+                        rewardTokenAmount =
+                            _toWei(stakingRewardValue) /
+                            rewardTokenPrice;
+                    }
+                }
             }
         }
 
-        uint256 stakingRewardTokenPrice = tokensData[stakingRewardToken].price;
-        uint256 stakingRewardTokenAmount = _toWei(stakingRewardValue) /
-            stakingRewardTokenPrice;
-        if (stakingRewardTokenAmount <= 0) return;
-
-        tokensData[stakingRewardToken]
-            .rewardBalance -= stakingRewardTokenAmount;
-        tokensData[stakingRewardToken].timestampLastUpdated = block.timestamp;
-        tokensStakersData[stakingRewardToken][_staker]
-            .rewardBalance += stakingRewardTokenAmount;
-        tokensStakersData[stakingRewardToken][_staker]
-            .timestampLastUpdated = block.timestamp;
+        tokensData[rewardToken].rewardBalance -= rewardTokenAmount;
+        tokensData[rewardToken].timestampLastUpdated = block.timestamp;
+        tokensStakersData[rewardToken][_staker]
+            .rewardBalance += rewardTokenAmount;
+        tokensStakersData[rewardToken][_staker].timestampLastUpdated = block
+            .timestamp;
         tokensStakersData[_token][_staker].timestampLastRewarded = block
             .timestamp;
 
@@ -317,9 +326,9 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
             .stakingRewards
             .length;
         tokenStakerRewardData.staker = _staker;
-        tokenStakerRewardData.rewardToken = stakingRewardToken;
-        tokenStakerRewardData.rewardTokenPrice = stakingRewardTokenPrice;
-        tokenStakerRewardData.rewardTokenAmount = stakingRewardTokenAmount;
+        tokenStakerRewardData.rewardToken = rewardToken;
+        tokenStakerRewardData.rewardTokenPrice = rewardTokenPrice;
+        tokenStakerRewardData.rewardTokenAmount = rewardTokenAmount;
         tokenStakerRewardData.stakedToken = _token;
         tokenStakerRewardData.stakedTokenPrice = tokenPrice;
         tokenStakerRewardData.stakedTokenAmount = stakingBalance;
