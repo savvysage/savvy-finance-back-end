@@ -579,14 +579,14 @@ def main():
     # proxy_savvy_finance_farm.issueStakingRewards({"from": get_account()}).wait(1)
     #####
 
-    # print_json(get_tokens_data(proxy_savvy_finance_farm))
-    # print_json(get_stakers_data(proxy_savvy_finance_farm))
-    # print_json(get_tokens_stakers_data(proxy_savvy_finance_farm))
-    # print(from_wei(proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address)))
-    # print(from_wei(proxy_savvy_finance.balanceOf(account1.address)))
-    # print(from_wei(proxy_savvy_finance.balanceOf(account2.address)))
-    # print(from_wei(proxy_savvy_finance.balanceOf(get_account().address)))
+    print_json(get_tokens_data(proxy_savvy_finance_farm))
+    print_json(get_stakers_data(proxy_savvy_finance_farm))
+    print_json(get_tokens_stakers_data(proxy_savvy_finance_farm))
+    print(from_wei(proxy_savvy_finance.balanceOf(proxy_savvy_finance_farm.address)))
+    print(from_wei(proxy_savvy_finance.balanceOf(account1.address)))
+    print(from_wei(proxy_savvy_finance.balanceOf(account2.address)))
+    print(from_wei(proxy_savvy_finance.balanceOf(get_account().address)))
 
     #####
-    generate_front_end_tokens_data(proxy_savvy_finance_farm)
+    # generate_front_end_tokens_data(proxy_savvy_finance_farm)
     #####
