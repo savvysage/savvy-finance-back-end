@@ -243,6 +243,19 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         return tokensStakersData[_token][_staker].stakingRewardToken;
     }
 
+    function _issueReward(
+        address _rewardToken,
+        uint256 _rewardTokenAmount,
+        address _receiver
+    ) internal {
+        tokensData[_rewardToken].rewardBalance -= _rewardTokenAmount;
+        tokensData[_rewardToken].timestampLastUpdated = block.timestamp;
+        tokensStakersData[_rewardToken][_receiver]
+            .rewardBalance += _rewardTokenAmount;
+        tokensStakersData[_rewardToken][_receiver].timestampLastUpdated = block
+            .timestamp;
+    }
+
     function _issueStakingReward(
         address _token,
         address _staker,
@@ -292,15 +305,11 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
                         address stakingRewardTokenAdmin = tokensData[
                             stakingRewardToken
                         ].admin;
-                        tokensData[rewardToken]
-                            .rewardBalance -= rewardTokenAmount;
-                        tokensData[rewardToken].timestampLastUpdated = block
-                            .timestamp;
-                        tokensStakersData[rewardToken][stakingRewardTokenAdmin]
-                            .rewardBalance += rewardTokenAmount;
-                        tokensStakersData[rewardToken][stakingRewardTokenAdmin]
-                            .timestampLastUpdated = block.timestamp;
-
+                        _issueReward(
+                            rewardToken,
+                            rewardTokenAmount,
+                            stakingRewardTokenAdmin
+                        );
                         // change reward token to staking reward token for payback
                         rewardToken = stakingRewardToken;
                         rewardTokenPrice = tokensData[rewardToken].price;
@@ -312,12 +321,7 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
             }
         }
 
-        tokensData[rewardToken].rewardBalance -= rewardTokenAmount;
-        tokensData[rewardToken].timestampLastUpdated = block.timestamp;
-        tokensStakersData[rewardToken][_staker]
-            .rewardBalance += rewardTokenAmount;
-        tokensStakersData[rewardToken][_staker].timestampLastUpdated = block
-            .timestamp;
+        _issueReward(rewardToken, rewardTokenAmount, _staker);
         tokensStakersData[_token][_staker].timestampLastRewarded = block
             .timestamp;
 
