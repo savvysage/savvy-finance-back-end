@@ -71,7 +71,7 @@ def get_token_price(token_address, network_name=network.show_active()):
 
 
 def get_lp_token_price(lp_token_address, network_name=network.show_active()):
-    lp_token_contract = interface.IPancakePair(lp_token_address)
+    lp_token_contract = interface.IUniswapV2Pair(lp_token_address)
     lp_token_supply = float(web3.fromWei(lp_token_contract.totalSupply(), "ether"))
     lp_token_pair_0_address = lp_token_contract.token0()
     lp_token_pair_1_address = lp_token_contract.token1()

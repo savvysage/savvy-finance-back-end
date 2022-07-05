@@ -377,7 +377,7 @@ def withdraw_staking_reward(
     contract, reward_token_contract, amount, account=get_account()
 ):
     amount2 = web3.toWei(amount, "ether")
-    contract.withdrawStakingReward(
+    contract.withdrawRewardToken(
         reward_token_contract.address, amount2, {"from": account}
     ).wait(1)
     print(
@@ -502,7 +502,7 @@ def main():
     # contract = SavvyFinanceFarm.at("0xBF892C932C1eE21e7530Bde2a627a48db7Ebafd1")
     # SavvyFinanceFarm.publish_source(contract)
 
-    proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm = get_contracts()
+    proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm = get_contracts("all")
     # proxy_savvy_finance_farm = upgrade_savvy_finance_farm()
 
     #####
@@ -586,6 +586,14 @@ def main():
     print(from_wei(proxy_savvy_finance.balanceOf(account1.address)))
     print(from_wei(proxy_savvy_finance.balanceOf(account2.address)))
     print(from_wei(proxy_savvy_finance.balanceOf(get_account().address)))
+
+    print(
+        from_wei(
+            SavvyFinanceFarmLibrary[-1].getTokenPrice(
+                "0xbdd2e3fdb879aa42748e9d47b7359323f226ba22"
+            )
+        )
+    )
 
     #####
     # generate_front_end_tokens_data(proxy_savvy_finance_farm)

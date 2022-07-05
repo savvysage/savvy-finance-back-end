@@ -2,14 +2,50 @@
 pragma solidity ^0.8.0;
 
 import "./SavvyFinanceFarm.sol";
+import "../interfaces/IERC20.sol";
+import "../interfaces/IUniswapV2Factory.sol";
+import "../interfaces/IUniswapV2Pair.sol";
+import "../interfaces/IUniswapV2Router02.sol";
 
 library SavvyFinanceFarmLibrary {
+    address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
+
     function toWei(uint256 _number) public pure returns (uint256) {
         return _number * (10**18);
     }
 
     function fromWei(uint256 _number) public pure returns (uint256) {
         return _number / (10**18);
+    }
+
+    function getTokenPrice(address _token) public view returns (uint256) {
+        uint256 priceInUsd;
+
+        IUniswapV2Router02 router = IUniswapV2Router02(
+            0x10ED43C718714eb63d5aA57B78B54704E256024E
+        );
+        IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
+        address usdToken = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
+        address usdPair = factory.getPair(_token, usdToken);
+
+        address[] memory path = new address[](2);
+        if (usdPair != ZERO_ADDRESS) {
+            path[0] = _token;
+            path[1] = usdToken;
+            priceInUsd = router.getAmountsOut(toWei(1), path)[1];
+        } else {
+            path[0] = _token;
+            path[1] = router.WETH();
+            uint256 priceInWeth = router.getAmountsOut(toWei(1), path)[1];
+
+            path[0] = router.WETH();
+            path[1] = usdToken;
+            uint256 wethPriceInUsd = router.getAmountsOut(toWei(1), path)[1];
+
+            priceInUsd = fromWei(priceInWeth * wethPriceInUsd);
+        }
+
+        return priceInUsd;
     }
 
     function secondsToYears(uint256 _seconds) public pure returns (uint256) {

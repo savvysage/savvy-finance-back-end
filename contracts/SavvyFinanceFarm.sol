@@ -45,7 +45,7 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
     //     address indexed token,
     //     TokenStakerRewardDetails rewardData
     // );
-    // event WithdrawStakingReward(
+    // event withdrawRewardToken(
     //     address indexed staker,
     //     address indexed reward_token,
     //     uint256 amount
@@ -197,7 +197,7 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         _issueStakingReward(_token, _msgSender(), ["claim staking reward", ""]);
     }
 
-    function withdrawStakingReward(address _reward_token, uint256 _amount)
+    function withdrawRewardToken(address _reward_token, uint256 _amount)
         public
     {
         require(tokenExists(_reward_token), "Reward token does not exist.");
@@ -211,7 +211,7 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         tokensStakersData[_reward_token][_msgSender()]
             .timestampLastUpdated = block.timestamp;
         IERC20(_reward_token).transfer(_msgSender(), _amount);
-        // emit WithdrawStakingReward(_msgSender(), _reward_token, _amount);
+        // emit withdrawRewardToken(_msgSender(), _reward_token, _amount);
     }
 
     function _setStakingRewardToken(
