@@ -18,31 +18,55 @@ library SavvyFinanceFarmLibrary {
         return _number / (10**18);
     }
 
-    function getTokenPrice(address _token) public view returns (uint256) {
+    function getTokenPrice(address _token, uint256 _category)
+        public
+        view
+        returns (uint256)
+    {
         uint256 priceInUsd;
 
         IUniswapV2Router02 router = IUniswapV2Router02(
             0x10ED43C718714eb63d5aA57B78B54704E256024E
         );
-        IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
-        address usdToken = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
-        address usdPair = factory.getPair(_token, usdToken);
 
-        address[] memory path = new address[](2);
-        if (usdPair != ZERO_ADDRESS) {
-            path[0] = _token;
-            path[1] = usdToken;
-            priceInUsd = router.getAmountsOut(toWei(1), path)[1];
-        } else {
-            path[0] = _token;
-            path[1] = router.WETH();
-            uint256 priceInWeth = router.getAmountsOut(toWei(1), path)[1];
+        if (_category == 0) {
+            IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
+            address usdToken = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
+            address usdPair = factory.getPair(_token, usdToken);
 
-            path[0] = router.WETH();
-            path[1] = usdToken;
-            uint256 wethPriceInUsd = router.getAmountsOut(toWei(1), path)[1];
+            address[] memory path = new address[](2);
+            if (usdPair != ZERO_ADDRESS) {
+                path[0] = _token;
+                path[1] = usdToken;
+                priceInUsd = router.getAmountsOut(toWei(1), path)[1];
+            } else {
+                path[0] = _token;
+                path[1] = router.WETH();
+                uint256 priceInWeth = router.getAmountsOut(toWei(1), path)[1];
 
-            priceInUsd = fromWei(priceInWeth * wethPriceInUsd);
+                path[0] = router.WETH();
+                path[1] = usdToken;
+                uint256 wethPriceInUsd = router.getAmountsOut(toWei(1), path)[
+                    1
+                ];
+
+                priceInUsd = fromWei(priceInWeth * wethPriceInUsd);
+            }
+        }
+
+        if (_category == 1) {
+            IUniswapV2Pair pair = IUniswapV2Pair(_token);
+            uint256 totalSupply = pair.totalSupply();
+            address token0 = pair.token0();
+            address token1 = pair.token1();
+            (uint256 token0Reserve, uint256 token1Reserve, ) = pair
+                .getReserves();
+            uint256 token0Price = getTokenPrice(token0, 0);
+            uint256 token1Price = getTokenPrice(token1, 0);
+            uint256 token0Value = token0Reserve * token0Price;
+            uint256 token1Value = token1Reserve * token1Price;
+            uint256 totalValue = token0Value + token1Value;
+            priceInUsd = totalValue / totalSupply;
         }
 
         return priceInUsd;

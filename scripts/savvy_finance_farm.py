@@ -17,8 +17,8 @@ from scripts.common import (
     from_wei,
     get_account,
     get_address,
-    get_token_price,
-    get_lp_token_price,
+    # get_token_price,
+    # get_lp_token_price,
     get_contract_address,
     get_contract,
     deploy_proxy_admin,
@@ -78,6 +78,10 @@ def erc20_token_transfer(token_contract, to, amount, account=get_account()):
         + ".",
         "\n\n",
     )
+
+
+def get_token_price(library, token, category, account=get_account()):
+    return float(from_wei(library.getTokenPrice(token, category)))
 
 
 def get_tokens_data(contract, tokens=None, account=get_account()):
@@ -494,7 +498,12 @@ def get_contracts(deploy=None):
         savvy_finance_farm_proxy.address,
         savvy_finance_farm.abi,
     )
-    return proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm
+    return (
+        proxy_admin,
+        proxy_savvy_finance,
+        proxy_savvy_finance_farm,
+        savvy_finance_farm_library,
+    )
 
 
 def main():
@@ -502,7 +511,12 @@ def main():
     # contract = SavvyFinanceFarm.at("0xBF892C932C1eE21e7530Bde2a627a48db7Ebafd1")
     # SavvyFinanceFarm.publish_source(contract)
 
-    proxy_admin, proxy_savvy_finance, proxy_savvy_finance_farm = get_contracts("all")
+    (
+        proxy_admin,
+        proxy_savvy_finance,
+        proxy_savvy_finance_farm,
+        savvy_finance_farm_library,
+    ) = get_contracts("all")
     # proxy_savvy_finance_farm = upgrade_savvy_finance_farm()
 
     #####
@@ -587,13 +601,9 @@ def main():
     print(from_wei(proxy_savvy_finance.balanceOf(account2.address)))
     print(from_wei(proxy_savvy_finance.balanceOf(get_account().address)))
 
-    print(
-        from_wei(
-            SavvyFinanceFarmLibrary[-1].getTokenPrice(
-                "0xbdd2e3fdb879aa42748e9d47b7359323f226ba22"
-            )
-        )
-    )
+    print(get_token_price(savvy_finance_farm_library, tokens["busd"], 0))
+    print(get_token_price(savvy_finance_farm_library, tokens["wbnb"], 0))
+    print(get_token_price(savvy_finance_farm_library, tokens["wbnb_busd"], 1))
 
     #####
     # generate_front_end_tokens_data(proxy_savvy_finance_farm)
