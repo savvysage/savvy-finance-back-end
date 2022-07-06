@@ -51,6 +51,20 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
     //     uint256 amount
     // );
 
+    function initialize() public override {
+        super.initialize();
+        configDex(
+            0,
+            DexDetails(
+                "PancakeSwap V2",
+                0x10ED43C718714eb63d5aA57B78B54704E256024E,
+                0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56
+            )
+        );
+        configTokenCategory(0, "BEP20");
+        configTokenCategory(1, "Cake-LP");
+    }
+
     function getTokenStakerData(address _token, address _staker)
         public
         view

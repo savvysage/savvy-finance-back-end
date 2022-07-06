@@ -11,6 +11,7 @@ contract SavvyFinanceFarmBase is Ownable, AccessControl {
 
     struct ConfigDetails {
         address developmentWallet;
+        uint256 defaultDex;
         uint256 minimumTokenNameLength;
         uint256 maximumTokenNameLength;
         uint256 minimumStakingApr;
@@ -25,11 +26,19 @@ contract SavvyFinanceFarmBase is Ownable, AccessControl {
     }
     ConfigDetails public configData;
 
+    struct DexDetails {
+        string name;
+        address router;
+        address usdToken;
+    }
+    mapping(uint256 => DexDetails) public dexs;
+
     // token => bool
     mapping(address => bool) public isExcludedFromFees;
 
     // constructor() {
     //     configData.developmentWallet = _msgSender();
+    //     configData.defaultDex = 0;
     //     configData.minimumTokenNameLength = 2;
     //     configData.maximumTokenNameLength = 15;
     //     configData.minimumStakingApr = _toWei(50);
@@ -44,8 +53,9 @@ contract SavvyFinanceFarmBase is Ownable, AccessControl {
     //     _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
     // }
 
-    function initialize() external {
+    function initialize() public virtual {
         configData.developmentWallet = _msgSender();
+        configData.defaultDex = 0;
         configData.minimumTokenNameLength = 2;
         configData.maximumTokenNameLength = 15;
         configData.minimumStakingApr = _toWei(50);
@@ -66,6 +76,17 @@ contract SavvyFinanceFarmBase is Ownable, AccessControl {
         onlyOwner
     {
         configData.developmentWallet = _developmentWallet;
+    }
+
+    function configDex(uint256 _number, DexDetails memory dex)
+        public
+        onlyOwner
+    {
+        dexs[_number] = dex;
+    }
+
+    function configDefaultDex(uint256 _defaultDex) public onlyOwner {
+        configData.defaultDex = _defaultDex;
     }
 
     function configTokenNameLength(
@@ -120,6 +141,10 @@ contract SavvyFinanceFarmBase is Ownable, AccessControl {
         uint256 _amount
     ) public onlyOwner {
         IERC20(_token).transfer(_to, _amount);
+    }
+
+    function getDex(uint256 _number) public view returns (DexDetails memory) {
+        return dexs[_number];
     }
 
     function _toWei(uint256 _number) internal pure returns (uint256) {

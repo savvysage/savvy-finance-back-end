@@ -18,20 +18,19 @@ library SavvyFinanceFarmLibrary {
         return _number / (10**18);
     }
 
-    function getTokenPrice(address _token, uint256 _category)
-        public
-        view
-        returns (uint256)
-    {
+    function getTokenPrice(
+        address _farm,
+        address _token,
+        uint256 _category
+    ) public view returns (uint256) {
         uint256 priceInUsd;
 
-        IUniswapV2Router02 router = IUniswapV2Router02(
-            0x10ED43C718714eb63d5aA57B78B54704E256024E
-        );
+        SavvyFinanceFarm farm = SavvyFinanceFarm(_farm);
+        IUniswapV2Router02 router = IUniswapV2Router02(farm.getDex(0).router);
 
         if (_category == 0) {
             IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
-            address usdToken = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
+            address usdToken = farm.getDex(0).usdToken;
             address usdPair = factory.getPair(_token, usdToken);
 
             address[] memory path = new address[](2);
@@ -61,8 +60,8 @@ library SavvyFinanceFarmLibrary {
             address token1 = pair.token1();
             (uint256 token0Reserve, uint256 token1Reserve, ) = pair
                 .getReserves();
-            uint256 token0Price = getTokenPrice(token0, 0);
-            uint256 token1Price = getTokenPrice(token1, 0);
+            uint256 token0Price = getTokenPrice(_farm, token0, 0);
+            uint256 token1Price = getTokenPrice(_farm, token1, 0);
             uint256 token0Value = token0Reserve * token0Price;
             uint256 token1Value = token1Reserve * token1Price;
             uint256 totalValue = token0Value + token1Value;

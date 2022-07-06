@@ -80,8 +80,8 @@ def erc20_token_transfer(token_contract, to, amount, account=get_account()):
     )
 
 
-def get_token_price(library, token, category, account=get_account()):
-    return float(from_wei(library.getTokenPrice(token, category)))
+def get_token_price(library, contract, token, category, account=get_account()):
+    return float(from_wei(library.getTokenPrice(contract.address, token, category)))
 
 
 def get_tokens_data(contract, tokens=None, account=get_account()):
@@ -544,8 +544,9 @@ def main():
     tokens = {"svf": proxy_savvy_finance.address} | get_tokens()
     tokensx = {"svf": tokens["svf"], "wbnb_busd": tokens["wbnb_busd"]}
 
-    #####
     # set_token_categories(proxy_savvy_finance_farm, ["DEFAULT", "LP"])
+
+    #####
     # add_tokens(proxy_savvy_finance_farm, tokens, account1)
     # set_token_reward_token(
     #     proxy_savvy_finance_farm,
@@ -601,9 +602,23 @@ def main():
     print(from_wei(proxy_savvy_finance.balanceOf(account2.address)))
     print(from_wei(proxy_savvy_finance.balanceOf(get_account().address)))
 
-    print(get_token_price(savvy_finance_farm_library, tokens["busd"], 0))
-    print(get_token_price(savvy_finance_farm_library, tokens["wbnb"], 0))
-    print(get_token_price(savvy_finance_farm_library, tokens["wbnb_busd"], 1))
+    print(
+        get_token_price(
+            savvy_finance_farm_library, proxy_savvy_finance_farm, tokens["busd"], 0
+        )
+    )
+    print(
+        get_token_price(
+            savvy_finance_farm_library, proxy_savvy_finance_farm, tokens["wbnb"], 0
+        )
+    )
+    print(
+        get_token_price(
+            savvy_finance_farm_library, proxy_savvy_finance_farm, tokens["wbnb_busd"], 1
+        )
+    )
+    # print(proxy_savvy_finance_farm.dexs(0))
+    # print(proxy_savvy_finance_farm.tokenCategory(0))
 
     #####
     # generate_front_end_tokens_data(proxy_savvy_finance_farm)
