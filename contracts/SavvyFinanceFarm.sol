@@ -257,6 +257,11 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         if (!tokensData[_token].isActive) return;
         if (!stakersData[_staker].isActive) return;
 
+        uint256 tokenPrice = Lib.getTokenPrice(
+            address(this),
+            _token,
+            tokensData[_token].category
+        );
         (
             uint256 stakingRewardAmount,
             uint256 stakingDurationInSeconds,
@@ -264,30 +269,24 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
             uint256 stakingAmount
         ) = Lib.calculateStakingReward(address(this), _token, _staker);
         if (stakingRewardAmount == 0) return;
-
         address tokenRewardToken = tokensData[_token].rewardToken;
         if (!tokensData[tokenRewardToken].isActive) return;
-        if (tokensData[tokenRewardToken].rewardBalance < stakingRewardAmount) {
+
+        address rewardToken = tokenRewardToken;
+        uint256 rewardTokenPrice = Lib.getTokenPrice(
+            address(this),
+            rewardToken,
+            tokensData[rewardToken].category
+        );
+        uint256 rewardTokenAmount = Lib.getTokenValue(
+            address(this),
+            _token,
+            stakingRewardAmount
+        ) / rewardTokenPrice;
+        if (tokensData[rewardToken].rewardBalance < rewardTokenAmount) {
             deactivateToken(_token);
             return;
         }
-
-        uint256 tokenPrice = Lib.getTokenPrice(
-            address(this),
-            _token,
-            tokensData[_token].category
-        );
-        uint256 tokenRewardTokenPrice = Lib.getTokenPrice(
-            address(this),
-            tokenRewardToken,
-            tokensData[tokenRewardToken].category
-        );
-
-        address rewardToken = tokenRewardToken;
-        uint256 rewardTokenPrice = tokenPrice;
-        uint256 rewardTokenAmount = stakingRewardAmount;
-
-        if (tokenRewardToken != _token) {}
 
         // {
         //     // if staking reward token is different from token reward token,

@@ -27,7 +27,7 @@ library SavvyFinanceFarmLibrary {
 
         // for testing tokens with no liquidity
         // function will return 0 so set a price
-        // priceInUsd = toWei(12);
+        priceInUsd = toWei(1);
 
         SavvyFinanceFarm farm = SavvyFinanceFarm(_farm);
         IUniswapV2Router02 router = IUniswapV2Router02(farm.getDex(0).router);
