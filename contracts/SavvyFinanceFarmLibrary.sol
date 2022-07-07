@@ -26,7 +26,7 @@ library SavvyFinanceFarmLibrary {
         uint256 priceInUsd;
 
         // for testing tokens with no liquidity
-        // function should return 0 so set a price
+        // function will return 0 so set a price
         // priceInUsd = toWei(12);
 
         SavvyFinanceFarm farm = SavvyFinanceFarm(_farm);
@@ -93,6 +93,7 @@ library SavvyFinanceFarmLibrary {
         uint256 _amount
     ) public view returns (uint256) {
         SavvyFinanceFarm farm = SavvyFinanceFarm(_farm);
+        if (!farm.tokenExists(_token)) return 0;
 
         return
             fromWei(
@@ -111,6 +112,8 @@ library SavvyFinanceFarmLibrary {
         address _staker
     ) public view returns (uint256) {
         SavvyFinanceFarm farm = SavvyFinanceFarm(_farm);
+        if (!farm.tokenExists(_token)) return 0;
+        if (!farm.stakerExists(_staker)) return 0;
 
         return
             getTokenValue(
