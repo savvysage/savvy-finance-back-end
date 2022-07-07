@@ -554,7 +554,7 @@ def main():
     #     account1,
     # )
     stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account2)
-    # stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account2)
+    stake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 1000, account2)
     # unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500, account2)
     # unstake_token(proxy_savvy_finance_farm, proxy_savvy_finance, 500, account2)
     # claim_staking_reward(proxy_savvy_finance_farm, proxy_savvy_finance, account2)

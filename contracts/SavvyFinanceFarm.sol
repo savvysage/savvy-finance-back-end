@@ -269,22 +269,19 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
             uint256 stakingAmount
         ) = Lib.calculateStakingReward(address(this), _token, _staker);
         if (stakingRewardAmount == 0) return;
-        address tokenRewardToken = tokensData[_token].rewardToken;
-        if (!tokensData[tokenRewardToken].isActive) return;
 
-        address rewardToken = tokenRewardToken;
+        address rewardToken = tokensData[_token].rewardToken;
+        if (!tokensData[rewardToken].isActive) return;
         uint256 rewardTokenPrice = Lib.getTokenPrice(
             address(this),
             rewardToken,
             tokensData[rewardToken].category
         );
-        uint256 rewardTokenAmount = Lib.getTokenValue(
-            address(this),
-            _token,
-            stakingRewardAmount
+        uint256 rewardTokenAmount = _toWei(
+            Lib.getTokenValue(address(this), _token, stakingRewardAmount)
         ) / rewardTokenPrice;
         if (tokensData[rewardToken].rewardBalance < rewardTokenAmount) {
-            deactivateToken(_token);
+            tokensData[_token].isActive = false;
             return;
         }
 
