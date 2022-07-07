@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import "./SavvyFinanceFarmToken.sol";
 import "./SavvyFinanceFarmStaker.sol";
-import {SavvyFinanceFarmLibrary as Lib} from "./SavvyFinanceFarmLibrary.sol";
 
 contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
     struct TokenStakerRewardDetails {
@@ -81,7 +80,11 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         return
             _fromWei(
                 tokensStakersData[_token][_staker].stakingBalance *
-                    tokensData[_token].price
+                    Lib.getTokenPrice(
+                        address(this),
+                        _token,
+                        tokensData[_token].category
+                    )
             );
     }
 
@@ -298,7 +301,11 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         }
 
         address rewardToken = tokenRewardToken;
-        uint256 rewardTokenPrice = tokensData[rewardToken].price;
+        uint256 rewardTokenPrice = Lib.getTokenPrice(
+            address(this),
+            rewardToken,
+            tokensData[rewardToken].category
+        );
         uint256 rewardTokenAmount = _toWei(stakingRewardValue) /
             rewardTokenPrice;
 
@@ -326,7 +333,11 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
                         );
                         // change reward token to staking reward token for payback
                         rewardToken = stakingRewardToken;
-                        rewardTokenPrice = tokensData[rewardToken].price;
+                        rewardTokenPrice = Lib.getTokenPrice(
+                            address(this),
+                            rewardToken,
+                            tokensData[rewardToken].category
+                        );
                         rewardTokenAmount =
                             _toWei(stakingRewardValue) /
                             rewardTokenPrice;

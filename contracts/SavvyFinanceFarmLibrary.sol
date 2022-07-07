@@ -101,7 +101,11 @@ library SavvyFinanceFarmLibrary {
         if (!farm.tokenExists(_token)) return (0, 0, 0, 0, 0);
         if (!farm.stakerExists(_staker)) return (0, 0, 0, 0, 0);
 
-        uint256 tokenPrice = farm.getTokenData(_token).price;
+        uint256 tokenPrice = getTokenPrice(
+            address(farm),
+            _token,
+            farm.getTokenData(_token).category
+        );
         uint256 stakingBalance = farm
             .getTokenStakerData(_token, _staker)
             .stakingBalance;

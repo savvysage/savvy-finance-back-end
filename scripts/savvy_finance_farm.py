@@ -100,7 +100,7 @@ def get_tokens_data(contract, tokens=None, account=get_account()):
             "hasMultiTokenRewards": token_data[2],
             "name": token_data[3],
             "category": token_data[4],
-            "price": float(from_wei(token_data[5])),
+            "dex": token_data[5],
             "rewardBalance": float(from_wei(token_data[6])),
             "stakingBalance": float(from_wei(token_data[7])),
             "stakingApr": float(from_wei(token_data[8])),
@@ -206,6 +206,7 @@ def add_tokens(contract, tokens=get_tokens(), account=get_account()):
         token = tokens[token_name]
         token_name_2 = token_name.replace("_", "-").upper()
         token_category = 0 if ("_" not in token_name) else 1
+        token_dex = 0
         token_staking_apr = to_wei(100)
         token_admin_stake_fee = to_wei(1)
         token_admin_unstake_fee = to_wei(1)
@@ -214,6 +215,7 @@ def add_tokens(contract, tokens=get_tokens(), account=get_account()):
             token,
             token_name_2,
             token_category,
+            token_dex,
             token_staking_apr,
             token_admin_stake_fee,
             token_admin_unstake_fee,

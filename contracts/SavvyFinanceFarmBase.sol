@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import {SavvyFinanceFarmLibrary as Lib} from "./SavvyFinanceFarmLibrary.sol";
 
 contract SavvyFinanceFarmBase is Ownable, AccessControl {
     address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;

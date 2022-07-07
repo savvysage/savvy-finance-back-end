@@ -26,7 +26,7 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         bool hasMultiTokenRewards;
         string name;
         uint256 category;
-        uint256 price;
+        uint256 dex;
         uint256 rewardBalance;
         uint256 stakingBalance;
         uint256 stakingApr;
@@ -67,14 +67,13 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
     function getTokenRewardValue(address _token) public view returns (uint256) {
         return
             _fromWei(
-                tokensData[_token].rewardBalance * tokensData[_token].price
+                tokensData[_token].rewardBalance *
+                    Lib.getTokenPrice(
+                        address(this),
+                        _token,
+                        tokensData[_token].category
+                    )
             );
-    }
-
-    function setTokenPrice(address _token, uint256 _price) public onlyOwner {
-        require(tokenExists(_token), "Token does not exist.");
-        tokensData[_token].price = _price;
-        tokensData[_token].timestampLastUpdated = block.timestamp;
     }
 
     function setTokenAdmin(address _token, address _admin) public onlyOwner {
@@ -121,6 +120,7 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         address _token,
         string memory _name,
         uint256 _category,
+        uint256 _dex,
         uint256 _stakingApr,
         uint256 _adminStakeFee,
         uint256 _adminUnstakeFee,
@@ -133,6 +133,7 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         tokens.push(_token);
         // tokensData[_token].index = index;
         tokensData[_token].category = _category;
+        tokensData[_token].dex = _dex;
         tokensData[_token].admin = _msgSender();
         tokensData[_token].fees.devDepositFee = 1; // in wei
         tokensData[_token].fees.devWithdrawFee = 1; // in wei
