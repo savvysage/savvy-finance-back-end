@@ -45,6 +45,14 @@ contract SavvyFinanceFarmToken is SavvyFinanceFarmBase {
         tokenCategory[_number] = _name;
     }
 
+    function getTokenCategoryName(uint256 _number)
+        public
+        view
+        returns (string memory)
+    {
+        return tokenCategory[_number];
+    }
+
     function tokenExists(address _token) public view returns (bool) {
         for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
             if (tokens[tokenIndex] == _token) return true;

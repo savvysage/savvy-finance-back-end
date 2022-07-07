@@ -72,26 +72,31 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         return tokensStakersData[_token][_staker];
     }
 
-    function getStakingValue(address _token, address _staker)
+    function changeStakingRewardToken(address _token, address _reward_token)
         public
-        view
-        returns (uint256)
+        returns (address stakingRewardToken)
     {
-        return
-            _fromWei(
-                tokensStakersData[_token][_staker].stakingBalance *
-                    Lib.getTokenPrice(
-                        address(this),
-                        _token,
-                        tokensData[_token].category
-                    )
-            );
-    }
+        require(tokenExists(_token), "Token does not exist.");
+        require(tokenExists(_reward_token), "Reward token does not exist.");
 
-    function setStakingRewardToken(address _token, address _reward_token)
-        public
-    {
-        _setStakingRewardToken(_msgSender(), _token, _reward_token, true);
+        if (_token != _reward_token) {
+            require(
+                tokensData[_token].hasMultiTokenRewards,
+                "Token does not have multi token rewards."
+            );
+            require(
+                tokensData[_reward_token].hasMultiTokenRewards,
+                "Reward token does not have multi token rewards."
+            );
+        }
+
+        if (!stakerExists(_msgSender())) _addStaker(_msgSender());
+        tokensStakersData[_token][_msgSender()]
+            .stakingRewardToken = _reward_token;
+        tokensStakersData[_token][_msgSender()].timestampLastUpdated = block
+            .timestamp;
+
+        return tokensStakersData[_token][_msgSender()].stakingRewardToken;
     }
 
     function stakeToken(address _token, uint256 _amount) public {
@@ -231,35 +236,6 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         // emit withdrawRewardToken(_msgSender(), _reward_token, _amount);
     }
 
-    function _setStakingRewardToken(
-        address _staker,
-        address _token,
-        address _reward_token,
-        bool validate
-    ) internal returns (address stakingRewardToken) {
-        if (validate) {
-            require(tokensData[_token].isActive, "Token not active.");
-            require(
-                tokensData[_token].hasMultiTokenRewards,
-                "Token does not have multi token rewards."
-            );
-            require(
-                tokensData[_reward_token].isActive,
-                "Reward token not active."
-            );
-            require(
-                tokensData[_reward_token].hasMultiTokenRewards,
-                "Reward token does not have multi token rewards."
-            );
-        }
-
-        if (!stakerExists(_staker)) _addStaker(_staker);
-        tokensStakersData[_token][_staker].stakingRewardToken = _reward_token;
-        tokensStakersData[_token][_staker].timestampLastUpdated = block
-            .timestamp;
-        return tokensStakersData[_token][_staker].stakingRewardToken;
-    }
-
     function _issueReward(
         address _rewardToken,
         uint256 _rewardTokenAmount,
@@ -282,69 +258,73 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         if (!stakersData[_staker].isActive) return;
 
         (
-            uint256 stakingRewardValue,
+            uint256 stakingRewardAmount,
             uint256 stakingDurationInSeconds,
             uint256 stakingApr,
-            uint256 stakingBalance,
-            uint256 tokenPrice
-        ) = Lib.calculateStakingReward(this, _token, _staker);
-        if (stakingRewardValue == 0) return;
+            uint256 stakingAmount
+        ) = Lib.calculateStakingReward(address(this), _token, _staker);
+        if (stakingRewardAmount == 0) return;
 
         address tokenRewardToken = tokensData[_token].rewardToken;
         if (!tokensData[tokenRewardToken].isActive) return;
-        uint256 tokenRewardTokenRewardValue = getTokenRewardValue(
-            tokenRewardToken
-        );
-        if (tokenRewardTokenRewardValue < stakingRewardValue) {
+        if (tokensData[tokenRewardToken].rewardBalance < stakingRewardAmount) {
             deactivateToken(_token);
             return;
         }
 
-        address rewardToken = tokenRewardToken;
-        uint256 rewardTokenPrice = Lib.getTokenPrice(
+        uint256 tokenPrice = Lib.getTokenPrice(
             address(this),
-            rewardToken,
-            tokensData[rewardToken].category
+            _token,
+            tokensData[_token].category
         );
-        uint256 rewardTokenAmount = _toWei(stakingRewardValue) /
-            rewardTokenPrice;
+        uint256 tokenRewardTokenPrice = Lib.getTokenPrice(
+            address(this),
+            tokenRewardToken,
+            tokensData[tokenRewardToken].category
+        );
 
-        {
-            // if staking reward token is different from token reward token,
-            // staking reward token admin receives the reward in token reward token
-            // to pay back equivalent in staking reward token, basically swapping
-            address stakingRewardToken = tokensStakersData[_token][_staker]
-                .stakingRewardToken;
-            if (stakingRewardToken != rewardToken) {
-                if (tokensData[stakingRewardToken].isActive) {
-                    uint256 stakingRewardTokenRewardValue = getTokenRewardValue(
-                        stakingRewardToken
-                    );
-                    if (!(stakingRewardTokenRewardValue < stakingRewardValue)) {
-                        // staking reward token admin receives the reward
-                        // in token reward token
-                        address stakingRewardTokenAdmin = tokensData[
-                            stakingRewardToken
-                        ].admin;
-                        _issueReward(
-                            rewardToken,
-                            rewardTokenAmount,
-                            stakingRewardTokenAdmin
-                        );
-                        // change reward token to staking reward token for payback
-                        rewardToken = stakingRewardToken;
-                        rewardTokenPrice = Lib.getTokenPrice(
-                            address(this),
-                            rewardToken,
-                            tokensData[rewardToken].category
-                        );
-                        rewardTokenAmount =
-                            _toWei(stakingRewardValue) /
-                            rewardTokenPrice;
-                    }
-                }
-            }
-        }
+        address rewardToken = tokenRewardToken;
+        uint256 rewardTokenPrice = tokenPrice;
+        uint256 rewardTokenAmount = stakingRewardAmount;
+
+        if (tokenRewardToken != _token) {}
+
+        // {
+        //     // if staking reward token is different from token reward token,
+        //     // staking reward token admin receives the reward in token reward token
+        //     // to pay back equivalent in staking reward token, basically swapping
+        //     address stakingRewardToken = tokensStakersData[_token][_staker]
+        //         .stakingRewardToken;
+        //     if (stakingRewardToken != rewardToken) {
+        //         if (tokensData[stakingRewardToken].isActive) {
+        //             uint256 stakingRewardTokenRewardValue = getTokenRewardValue(
+        //                 stakingRewardToken
+        //             );
+        //             if (!(stakingRewardTokenRewardValue < stakingRewardValue)) {
+        //                 // staking reward token admin receives the reward
+        //                 // in token reward token
+        //                 address stakingRewardTokenAdmin = tokensData[
+        //                     stakingRewardToken
+        //                 ].admin;
+        //                 _issueReward(
+        //                     rewardToken,
+        //                     rewardTokenAmount,
+        //                     stakingRewardTokenAdmin
+        //                 );
+        //                 // change reward token to staking reward token for payback
+        //                 rewardToken = stakingRewardToken;
+        //                 rewardTokenPrice = Lib.getTokenPrice(
+        //                     address(this),
+        //                     rewardToken,
+        //                     tokensData[rewardToken].category
+        //                 );
+        //                 rewardTokenAmount =
+        //                     _toWei(stakingRewardValue) /
+        //                     rewardTokenPrice;
+        //             }
+        //         }
+        //     }
+        // }
 
         _issueReward(rewardToken, rewardTokenAmount, _staker);
         tokensStakersData[_token][_staker].timestampLastRewarded = block
@@ -360,7 +340,7 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         tokenStakerRewardData.rewardTokenAmount = rewardTokenAmount;
         tokenStakerRewardData.stakedToken = _token;
         tokenStakerRewardData.stakedTokenPrice = tokenPrice;
-        tokenStakerRewardData.stakedTokenAmount = stakingBalance;
+        tokenStakerRewardData.stakedTokenAmount = stakingAmount;
         tokenStakerRewardData.stakingApr = stakingApr;
         tokenStakerRewardData
             .stakingDurationInSeconds = stakingDurationInSeconds;

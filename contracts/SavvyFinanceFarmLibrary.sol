@@ -25,6 +25,10 @@ library SavvyFinanceFarmLibrary {
     ) public view returns (uint256) {
         uint256 priceInUsd;
 
+        // for testing tokens with no liquidity
+        // function should return 0 so set a price
+        // priceInUsd = toWei(12);
+
         SavvyFinanceFarm farm = SavvyFinanceFarm(_farm);
         IUniswapV2Router02 router = IUniswapV2Router02(farm.getDex(0).router);
 
@@ -32,6 +36,8 @@ library SavvyFinanceFarmLibrary {
             IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
             address usdToken = farm.getDex(0).usdToken;
             address usdPair = factory.getPair(_token, usdToken);
+            address wethToken = router.WETH();
+            address wethPair = factory.getPair(_token, wethToken);
 
             address[] memory path = new address[](2);
             if (usdPair != ZERO_ADDRESS) {
@@ -39,36 +45,79 @@ library SavvyFinanceFarmLibrary {
                 path[1] = usdToken;
                 priceInUsd = router.getAmountsOut(toWei(1), path)[1];
             } else {
-                path[0] = _token;
-                path[1] = router.WETH();
-                uint256 priceInWeth = router.getAmountsOut(toWei(1), path)[1];
+                if (wethPair != ZERO_ADDRESS) {
+                    path[0] = _token;
+                    path[1] = wethToken;
+                    uint256 priceInWeth = router.getAmountsOut(toWei(1), path)[
+                        1
+                    ];
 
-                path[0] = router.WETH();
-                path[1] = usdToken;
-                uint256 wethPriceInUsd = router.getAmountsOut(toWei(1), path)[
-                    1
-                ];
+                    path[0] = wethToken;
+                    path[1] = usdToken;
+                    uint256 wethPriceInUsd = router.getAmountsOut(
+                        toWei(1),
+                        path
+                    )[1];
 
-                priceInUsd = fromWei(priceInWeth * wethPriceInUsd);
+                    priceInUsd = fromWei(priceInWeth * wethPriceInUsd);
+                }
             }
         }
 
         if (_category == 1) {
             IUniswapV2Pair pair = IUniswapV2Pair(_token);
-            uint256 totalSupply = pair.totalSupply();
-            address token0 = pair.token0();
-            address token1 = pair.token1();
-            (uint256 token0Reserve, uint256 token1Reserve, ) = pair
-                .getReserves();
-            uint256 token0Price = getTokenPrice(_farm, token0, 0);
-            uint256 token1Price = getTokenPrice(_farm, token1, 0);
-            uint256 token0Value = token0Reserve * token0Price;
-            uint256 token1Value = token1Reserve * token1Price;
-            uint256 totalValue = token0Value + token1Value;
-            priceInUsd = totalValue / totalSupply;
+            if (
+                keccak256(abi.encodePacked(pair.symbol())) ==
+                keccak256(abi.encodePacked(farm.getTokenCategoryName(1)))
+            ) {
+                uint256 totalSupply = pair.totalSupply();
+                address token0 = pair.token0();
+                address token1 = pair.token1();
+                (uint256 token0Reserve, uint256 token1Reserve, ) = pair
+                    .getReserves();
+                uint256 token0Price = getTokenPrice(_farm, token0, 0);
+                uint256 token1Price = getTokenPrice(_farm, token1, 0);
+                uint256 token0Value = token0Reserve * token0Price;
+                uint256 token1Value = token1Reserve * token1Price;
+                uint256 totalValue = token0Value + token1Value;
+                priceInUsd = totalValue / totalSupply;
+            }
         }
 
         return priceInUsd;
+    }
+
+    function getTokenValue(
+        address _farm,
+        address _token,
+        uint256 _amount
+    ) public view returns (uint256) {
+        SavvyFinanceFarm farm = SavvyFinanceFarm(_farm);
+
+        return
+            fromWei(
+                _amount *
+                    getTokenPrice(
+                        _farm,
+                        _token,
+                        farm.getTokenData(_token).category
+                    )
+            );
+    }
+
+    function getStakingValue(
+        address _farm,
+        address _token,
+        address _staker
+    ) public view returns (uint256) {
+        SavvyFinanceFarm farm = SavvyFinanceFarm(_farm);
+
+        return
+            getTokenValue(
+                _farm,
+                _token,
+                farm.getTokenStakerData(_token, _staker).stakingBalance
+            );
     }
 
     function secondsToYears(uint256 _seconds) public pure returns (uint256) {
@@ -84,7 +133,7 @@ library SavvyFinanceFarmLibrary {
     }
 
     function calculateStakingReward(
-        SavvyFinanceFarm farm,
+        address _farm,
         address _token,
         address _staker
     )
@@ -94,23 +143,17 @@ library SavvyFinanceFarmLibrary {
             uint256,
             uint256,
             uint256,
-            uint256,
             uint256
         )
     {
-        if (!farm.tokenExists(_token)) return (0, 0, 0, 0, 0);
-        if (!farm.stakerExists(_staker)) return (0, 0, 0, 0, 0);
+        SavvyFinanceFarm farm = SavvyFinanceFarm(_farm);
+        if (!farm.tokenExists(_token)) return (0, 0, 0, 0);
+        if (!farm.stakerExists(_staker)) return (0, 0, 0, 0);
 
-        uint256 tokenPrice = getTokenPrice(
-            address(farm),
-            _token,
-            farm.getTokenData(_token).category
-        );
-        uint256 stakingBalance = farm
+        uint256 stakingAmount = farm
             .getTokenStakerData(_token, _staker)
             .stakingBalance;
-        uint256 stakingValue = fromWei(stakingBalance * tokenPrice);
-        if (stakingValue <= 0) return (0, 0, 0, 0, 0);
+        if (stakingAmount <= 0) return (0, 0, 0, 0);
 
         uint256 stakingApr = farm.getTokenData(_token).stakingApr;
         uint256 stakingRewardRate = stakingApr / 100;
@@ -120,23 +163,22 @@ library SavvyFinanceFarmLibrary {
         uint256 stakingTimestampStarted = stakingTimestampLastRewarded != 0
             ? stakingTimestampLastRewarded
             : farm.getTokenStakerData(_token, _staker).timestampAdded;
-        uint256 stakingTimestampEnded = block.timestamp;
+        uint256 stakingTimestampEnded = block.timestamp + (60 * 60 * 24);
         uint256 stakingDurationInSeconds = toWei(
             stakingTimestampEnded - stakingTimestampStarted
         );
         uint256 stakingDurationInYears = secondsToYears(
             stakingDurationInSeconds
         );
-        uint256 stakingRewardValue = (stakingValue *
+        uint256 stakingRewardAmount = (stakingAmount *
             stakingRewardRate *
             stakingDurationInYears) / (10**36);
 
         return (
-            stakingRewardValue,
+            stakingRewardAmount,
             stakingDurationInSeconds,
             stakingApr,
-            stakingBalance,
-            tokenPrice
+            stakingAmount
         );
     }
 }
