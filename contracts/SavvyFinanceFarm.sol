@@ -254,35 +254,33 @@ contract SavvyFinanceFarm is SavvyFinanceFarmToken, SavvyFinanceFarmStaker {
         address _staker,
         string[2] memory _triggeredBy
     ) internal {
-        if (!tokensData[_token].isActive) return;
-        if (!stakersData[_staker].isActive) return;
+        require(tokensData[_token].isActive, "Token not active.");
+        require(stakersData[_staker].isActive, "Staker not active.");
 
-        uint256 tokenPrice = Lib.getTokenPrice(
-            address(this),
-            _token,
-            tokensData[_token].category
-        );
         (
             uint256 stakingRewardAmount,
             uint256 stakingDurationInSeconds,
             uint256 stakingApr,
             uint256 stakingAmount
         ) = Lib.calculateStakingReward(address(this), _token, _staker);
-        if (stakingRewardAmount == 0) return;
+        require(stakingRewardAmount > 0, "No reward yet.");
 
         address rewardToken = tokensData[_token].rewardToken;
-        if (!tokensData[rewardToken].isActive) return;
-        uint256 rewardTokenPrice = Lib.getTokenPrice(
-            address(this),
-            rewardToken,
-            tokensData[rewardToken].category
-        );
-        uint256 rewardTokenAmount = _toWei(
-            Lib.getTokenValue(address(this), _token, stakingRewardAmount)
-        ) / rewardTokenPrice;
+        require(tokensData[rewardToken].isActive, "Reward token not active.");
+
+        (
+            uint256 rewardTokenAmount,
+            uint256 rewardTokenPrice,
+            uint256 tokenPrice
+        ) = Lib.convertFrom(
+                address(this),
+                _token,
+                rewardToken,
+                stakingRewardAmount
+            );
         if (tokensData[rewardToken].rewardBalance < rewardTokenAmount) {
             tokensData[_token].isActive = false;
-            return;
+            revert("Insufficient reward token balance.");
         }
 
         // {

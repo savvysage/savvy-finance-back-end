@@ -184,4 +184,37 @@ library SavvyFinanceFarmLibrary {
             stakingAmount
         );
     }
+
+    function convertFrom(
+        address _farm,
+        address _from,
+        address _to,
+        uint256 _fromAmount
+    )
+        public
+        view
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        SavvyFinanceFarm farm = SavvyFinanceFarm(_farm);
+        if (!farm.tokenExists(_from)) return (0, 0, 0);
+        if (!farm.tokenExists(_to)) return (0, 0, 0);
+
+        uint256 fromPrice = getTokenPrice(
+            _farm,
+            _from,
+            farm.getTokenData(_from).category
+        );
+        uint256 toPrice = getTokenPrice(
+            _farm,
+            _to,
+            farm.getTokenData(_to).category
+        );
+        uint256 toAmount = (_fromAmount * fromPrice) / toPrice;
+
+        return (toAmount, toPrice, fromPrice);
+    }
 }
